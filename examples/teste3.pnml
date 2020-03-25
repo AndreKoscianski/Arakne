@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<net id="myself" type="http://www.pnml.org/version-2009/grammar/ptnet">
+  <page id="0">
+    <place id="1">
+      <name>
+        <text>P1</text>
+      </name>
+      <graphics>
+        <position x="252" y="64"/>
+      </graphics>
+      <initialMarking>
+        <text>0</text>
+      </initialMarking>
+    </place>
+    <place id="2">
+      <name>
+        <text>P2</text>
+      </name>
+      <graphics>
+        <position x="363" y="231"/>
+      </graphics>
+      <initialMarking>
+        <text>0</text>
+      </initialMarking>
+    </place>
+    <transition id="3">
+      <name>
+        <text>T1</text>
+      </name>
+      <graphics>
+        <position x="131" y="146"/>
+      </graphics>
+    </transition>
+    <transition id="4">
+      <name>
+        <text>T2</text>
+      </name>
+      <graphics>
+        <position x="511" y="179"/>
+      </graphics>
+    </transition>
+    <arc id="5" source="3" target="1"/>
+    <arc id="6" source="1" target="4"/>
+    <arc id="7" source="4" target="2"/>
+    <arc id="8" source="2" target="3"/>
+  </page>
+</net>
