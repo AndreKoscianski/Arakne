@@ -6,8 +6,9 @@ interface
 
 uses
   Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, ExtCtrls,
-  Buttons, Clipbrd, LCLIntf, LCLType, StdCtrls, Spin,
+  Buttons, Clipbrd, LCLIntf, LCLType, StdCtrls, Spin, Menus,
   DOM, XMLRead, XMLWrite;
+//,GraphUtil;
 
 type
 
@@ -22,13 +23,16 @@ type
     btnSave: TBitBtn;
     Edit1: TEdit;
     Label1: TLabel;
-    LineColor: TColorButton;
+    MICount: TMenuItem;
+    MIRename: TMenuItem;
+    MIDelete: TMenuItem;
     MyCanvas: TPaintBox;
     OpenDialog1: TOpenDialog;
+    PopupMenu1: TPopupMenu;
     SaveDialog1: TSaveDialog;
     CanvasScroller: TScrollBox;
     SpinEdit1: TSpinEdit;
-    ToolTriangle: TSpeedButton;
+    ToolErase: TSpeedButton;
     ToolRect: TSpeedButton;
     ToolPointer: TSpeedButton;
     ToolLine: TSpeedButton;
@@ -41,9 +45,13 @@ type
     procedure btnSaveClick(Sender: TObject);
     procedure Edit1Change(Sender: TObject);
     procedure Edit1EditingDone(Sender: TObject);
+    procedure Edit1Exit(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
-    procedure LineColorColorChanged(Sender: TObject);
+    procedure MICountClick(Sender: TObject);
+    procedure MIDeleteClick(Sender: TObject);
+    procedure MIRenameClick(Sender: TObject);
+    procedure MyCanvasClick(Sender: TObject);
     procedure MyCanvasDblClick(Sender: TObject);
     procedure MyCanvasMouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; pX, pY: Integer);
@@ -53,6 +61,7 @@ type
       Shift: TShiftState; pX, pY: Integer);
     procedure MyCanvasPaint(Sender: TObject);
     procedure SpinEdit1Change(Sender: TObject);
+    procedure SpinEdit1Exit(Sender: TObject);
   private
     { private declarations }
     function MouseSelectedElement (pX, pY: integer) : boolean;
@@ -66,6 +75,7 @@ type
        (no: TDOMNode; var sid, sname: string; var x, y: integer);
     procedure ExtraiaDadosArcXML
        (no: TDOMNode; var sid, sname: string; var id1, id2: integer);
+    procedure RemoverElemento;
   public
     { public declarations }
   end;
@@ -88,6 +98,8 @@ const
   KArc = 3;
   KEditName = 4;
   KCriandoLinha = 5;
+  KNothing = 6;
+  KPopupMenu = 7;
   KLengthName = 15;
   KNumElements = 1000;
 
@@ -100,9 +112,10 @@ end;
 
 var GElements : array[1..KNumElements] of TElement;
     Gi  // current element being created
-   ,Gs  // current element selected
+   ,Gs, Gss // current element selected
    ,Gs1, Gs2 // while creating an arrow
    ,Gsize , Gmidsize   // current size to draw element
+   ,GsizeToken
    ,Gstate
    ,Gplacecounter
    ,Gtransitioncounter
@@ -300,11 +313,21 @@ var
 
          ExtraiaDadosArcXML (Members[i], sid, sname, x, y);
 
+         if ((x < 1) or (y < 1)) then Halt;
+
          inc (Gi);
          Gstr[Gi] := sid;
          GElements[Gi].id1 := x;
          GElements[Gi].id2 := y;
          GElements[Gi].tipo := KArc;
+
+         // marque na linha coordenadas do centro dela
+         GElements[Gi].x :=
+           (GElements[GElements[Gi].id1].x +
+            GElements[GElements[Gi].id2].x) div 2;
+         GElements[Gi].y :=
+           (GElements[GElements[Gi].id1].y +
+            GElements[GElements[Gi].id2].y) div 2;
       end;
 
     finally
@@ -414,6 +437,27 @@ begin
     Doc.Free;
   end;
 end;
+procedure TForm1.RemoverElemento;
+var i: integer;
+begin
+
+   GElements[Gs].tipo := KNothing;
+
+   // if arc, simply get rid of it and exit
+   if (GElements[Gs]. tipo = KArc) then
+      Exit;
+
+   // It wasn't an arc: we have to handle arcs
+   //  pointing to the thing tha has been removed.
+   for i:=1 to Gi do begin
+
+      if ((i = Gs) or (GElements[i].tipo <> KArc)) then Continue;
+
+      if ((GElements[i].id1 = Gs) or
+          (GElements[i].id2 = Gs)) then
+          GElements[i].tipo := KNothing;
+   end;
+end;
 
 procedure TForm1.FormClose(Sender: TObject; var CloseAction: TCloseAction);
 begin
@@ -480,8 +524,8 @@ begin
     paintbmp.Canvas.Brush.Style:=bsClear;
     MyCanvas.Canvas.Brush.Style:=bsClear;
 
-    paintbmp.Canvas.Pen.Color:=LineColor.ButtonColor;
-    paintbmp.Canvas.Pen.Width:=SpinEdit1.Value;
+    paintbmp.Canvas.Pen.Color := clBlack;
+    paintbmp.Canvas.Pen.Width := 1;
 
     MyCanvasPaint(Sender);
 end;
@@ -574,31 +618,25 @@ begin
 
 end;
 
+
 procedure TForm1.Edit1EditingDone(Sender: TObject);
-var i: integer;
 begin
 
   Gstate := 0;
 
-  for i:= 1 to Gi do begin
-
-      if (i = Gs) then Continue;
-
-      if GElements[i].s = Edit1.Text then Exit;
-
-  end;
-
-  GElements[Gs].s := Edit1.Text;
-
-  Edit1.Text := '';
+  GElements[Gss].s := Edit1.Text;
 
   Gs := 0;
-
-  BtnSave.SetFocus;
+  Gss := 0;
 
   Invalidate;
   MyCanvasPaint (Sender);
 
+end;
+
+procedure TForm1.Edit1Exit(Sender: TObject);
+begin
+  Edit1.Text := '';
 end;
 
 
@@ -609,27 +647,86 @@ begin
   btnNewClick(Sender);
 end;
 
-procedure TForm1.LineColorColorChanged(Sender: TObject);
+procedure TForm1.MICountClick(Sender: TObject);
 begin
-  paintbmp.Canvas.Pen.Color:=LineColor.ButtonColor;
-  MyCanvas.Canvas.Pen.Color:=LineColor.ButtonColor;
+  Gss := Gs;
+
+  Gstate := KEditName;
+
+  SpinEdit1.Value := GElements[Gs].count;
+  SpinEdit1.SetFocus;
+end;
+
+procedure TForm1.MIDeleteClick(Sender: TObject);
+begin
+  Gstate := 0;
+
+  if (Gs > 0) then begin
+     RemoverElemento;
+     Invalidate;
+     MyCanvasPaint (Sender);
+  end;
+
+end;
+
+procedure TForm1.MIRenameClick(Sender: TObject);
+begin
+  Gss := Gs;
+  Edit1.Text := GElements[Gs].s;
+  SpinEdit1.Value := GElements[Gs].count;
+
+  Gstate := KEditName;
+
+  Edit1.MaxLength := KLengthName;
+  Edit1.SetFocus;
+
+end;
+
+
+
+procedure TForm1.MyCanvasClick(Sender: TObject);
+begin
+
+  if (Gstate = KEditName) then begin
+    Edit1.Text := '';
+    Gs := 0;
+    Gss := 0;
+
+    Gstate := 0;
+    BtnSave.SetFocus;
+    Exit;
+
+  end;
+
+  if ((not ToolPointer.Down) and (not ToolErase.Down)) then Exit;
+
+  Gss := 0;
+
+  if (Gs < 1) then
+     Exit;
+
+  if (ToolErase.Down) then begin
+     RemoverElemento;
+     Invalidate;
+     MyCanvasPaint(Sender);
+  end;
+
+
 end;
 
 procedure TForm1.MyCanvasDblClick(Sender: TObject);
 begin
 
-  if (not ToolPointer.Down) then Exit;
-
-  if (Gs < 1) then Exit;
+  Exit;
+(*
+  Gss := Gs;
+  Edit1.Text := GElements[Gs].s;
+  SpinEdit1.Value := GElements[Gs].count;
 
   Gstate := KEditName;
 
-  Edit1.Text := GElements[Gs].s;
-
-  Edit1.MaxLength := KLengthName;
-
   Edit1.SetFocus;
-
+*)
 end;
 
 procedure TForm1.MyCanvasMouseDown(Sender: TObject; Button: TMouseButton;
@@ -637,6 +734,22 @@ procedure TForm1.MyCanvasMouseDown(Sender: TObject; Button: TMouseButton;
 begin
   MouseIsDown := True;
 
+
+  if Button = mbRight then begin
+
+     if (Gs < 1) then Exit;
+
+     MICount.Enabled := (GElements[Gs].tipo = KPlace);
+
+
+     PopupMenu1.PopUp(Form1.Left + CanvasScroller.Left + pX,
+                      Form1.Top + CanvasScroller.Left + pY + 50);
+    // Gstate := KPopupMenu;
+     Exit;
+  end;
+
+  if Gstate = KPopupMenu then
+     Exit;
 
   if ToolRect.Down = true then begin
     inc(Gi);
@@ -669,8 +782,6 @@ begin
 
     Gstate := KCriandoLinha;
   end
-
-
 end;
 
 procedure TForm1.MyCanvasMouseMove(Sender: TObject; Shift: TShiftState; pX,
@@ -679,38 +790,33 @@ var i:integer;
     n, min: real;
 begin
 
-  if (Gstate = KEditName) then Exit;
+  if ((Gstate = KEditName) or (Gstate = KPopupMenu)) then Exit;
 
+  // selecting things
   if ToolPointer.Down then begin
-(*
-if MouseSelectedElement (pX, pY) then begin
 
-      Invalidate;
-      MyCanvasPaint(Sender);
-
-      if (MouseIsDown) then begin
-         GElements[Gs].x := pX;
-         GElements[Gs].y := pY;
-      end;
-
-      Exit;
-    end;
-  *)
-
+    // moving an element
     if (MouseIsDown) then
-       if (Gs > 0) then begin
-          GElements[Gs].x := pX;
-          GElements[Gs].y := pY;
+
+       // place or transition selected?
+       if ((Gs > 0) and (GElements[Gs].tipo <> KArc)) then begin
+
+           // move it!
+           GElements[Gs].x := pX;
+           GElements[Gs].y := pY;
+
        end else
           Exit
     else
-       MouseSelectedElement (pX, pY);
+
+    MouseSelectedElement (pX, pY);
 
     Invalidate;
     MyCanvasPaint(Sender);
 
   end;
 
+  // placing a new element
   if (MouseIsDown and (Gi > 0) and
       (ToolRect.Down or ToolOval.Down)) then begin
 
@@ -722,7 +828,8 @@ if MouseSelectedElement (pX, pY) then begin
 
   end;
 
-  if (ToolLine.Down) then begin
+  // only get coordinates.
+  if ((ToolLine.Down) or (ToolErase.Down)) then begin
 
      PrevX := pX;
      PrevY := pY;
@@ -739,6 +846,8 @@ procedure TForm1.MyCanvasMouseUp(Sender: TObject; Button: TMouseButton;
 begin
 
   MouseIsDown:=False;
+
+  if (Gstate = KPopupMenu) then Exit;
 
   if (Gstate = KCriandoLinha) then begin
 
@@ -761,6 +870,16 @@ begin
      // marque na linha objeto final
      GElements[Gi].id2 := Gs;
 
+     // marque na linha coordenadas do centro dela
+     GElements[Gi].x :=
+       (GElements[GElements[Gi].id1].x +
+        GElements[GElements[Gi].id2].x) div 2;
+     GElements[Gi].y :=
+       (GElements[GElements[Gi].id1].y +
+        GElements[GElements[Gi].id2].y) div 2;
+
+
+
      // interface volta ao estado zero
      Gstate := 0;
      Gs := 0;
@@ -773,8 +892,11 @@ begin
 end;
 
 procedure TForm1.MyCanvasPaint(Sender: TObject);
-var i: integer;
+var i, ax, ay: integer;
+    d, dx, dy: real;
     atp : array[1..4] of TPoint;
+    cor : TColor;
+
 begin
 
   MyCanvas.Canvas.Brush.Color := clWhite;
@@ -783,11 +905,17 @@ begin
 
   for i:=1 to Gi do begin
 
+
+      if GElements[i].tipo = KNothing then Continue;
+
+
       // Se elemento selecionado, cor = amarelo
-      if (Gs <> i) then
-         MyCanvas.Canvas.Brush.Color := clWhite
+      if (Gss = i) then
+         MyCanvas.Canvas.Brush.Color := clYellow
+      else if (Gs = i) then
+         MyCanvas.Canvas.Brush.Color := clOlive
       else
-         MyCanvas.Canvas.Brush.Color := clYellow;
+         MyCanvas.Canvas.Brush.Color := clWhite;
 
        with GElements[i] do begin
 
@@ -806,12 +934,78 @@ begin
 
              // Se chegou aqui, reta tem ponto final.
 
+             if (Gs = i) then begin
+                MyCanvas.Canvas.Pen.Color := clOlive;
+                MyCanvas.Canvas.Pen.Width := 4;
+             end;
+
+             // marque na linha coordenadas do centro dela
+             GElements[i].x :=
+               (GElements[GElements[i].id1].x +
+                GElements[GElements[i].id2].x) div 2;
+             GElements[i].y :=
+               (GElements[GElements[i].id1].y +
+                GElements[GElements[i].id2].y) div 2;
+
+             atp[1].x := GElements[i].x;
+             atp[1].y := GElements[i].y;
+             atp[2].x := GElements[GElements[i].id2].x;
+             atp[2].y := GElements[GElements[i].id2].y;
+
+
+             // Termine com uma flecha.
+             dx := (atp[2].x - atp[1].x);
+             dy := (atp[2].y - atp[1].y);
+
+             d := sqrt (dx*dx + dy* dy);
+
+             dx := Gsize * (dx / d);
+             dy := Gsize * (dy / d);
+
+             // arrow base
+             atp[3].x := atp[2].x - trunc(dx); atp[3].y := atp[2].y - trunc(dy);
+
+
+            // Draw arc
+            MyCanvas.Canvas.Line (
+                   GElements[GElements[i].id1].x,
+                   GElements[GElements[i].id1].y,
+                   atp[3].x,
+                   atp[3].y
+                   );
+
+            MyCanvas.Canvas.Pen.Color := clBlack;
+            MyCanvas.Canvas.Pen.Width := 1;
+
+            // Draw Arrows
+
+            // arrow line1
+            atp[4].x := atp[3].x - trunc(dx * 0.866 + dy * -0.500);
+            atp[4].y := atp[3].y - trunc(dx * 0.500 + dy *  0.866);
+
              MyCanvas.Canvas.Line (
-             GElements[GElements[i].id1].x,
-             GElements[GElements[i].id1].y,
-             GElements[GElements[i].id2].x,
-             GElements[GElements[i].id2].y
-                 );
+                atp[3].x, atp[3].y,
+                atp[4].x, atp[4].y
+                );
+
+             // arrow line2
+             atp[4].x := atp[3].x - trunc(dx *  0.866 + dy * 0.500);
+             atp[4].y := atp[3].y - trunc(dx * -0.500 + dy * 0.866);
+
+             MyCanvas.Canvas.Line (
+                atp[3].x, atp[3].y,
+                atp[4].x, atp[4].y
+                );
+
+
+
+            (* if (atp[1].x < atp[2].x) then atp[2].x := atp[2].x - Gsize;
+             if (atp[2].x < atp[1].x) then atp[2].x := atp[2].x + Gsize;
+             if (atp[1].y < atp[2].y) then atp[2].y := atp[2].y - Gsize;
+             if (atp[1].y < atp[2].y) then atp[2].x := atp[2].y + Gsize;
+
+             DrawArrow(MyCanvas.Canvas,atp[1],atp[2],atArrows); //atSolid
+            *)
 
             // Calcule Bezier e plote.
 (*            InterpolateBezier (GElements[i].id1,
@@ -823,11 +1017,41 @@ begin
              Continue;
           end
 
-          else if tipo = KPlace then
-             MyCanvas.Canvas.Ellipse (x-Gsize, y-Gsize, x+Gsize, y+Gsize)
+          else if tipo = KPlace then begin
+
+             MyCanvas.Canvas.Ellipse (x-Gsize, y-Gsize, x+Gsize, y+Gsize);
+
+             if (count > 0) then begin
+
+                cor := MyCanvas.Canvas.Brush.Color;
+
+                MyCanvas.Canvas.Brush.Color := clBlack;
+
+                if (count = 1) or (count = 3) then
+                 MyCanvas.Canvas.Ellipse (x-GsizeToken, y-GsizeToken, x+GsizeToken, y+GsizeToken);
+
+                if (count = 2) or (count = 3) then begin
+                  ax := x - 2*GsizeToken;
+                  ay := y + 2*GsizeToken;
+                  MyCanvas.Canvas.Ellipse (ax-GsizeToken, ay-GsizeToken, ax+GsizeToken, ay+GsizeToken);
+
+                  ax := x + 2*GsizeToken;
+                  ay := y - 2*GsizeToken;
+                  MyCanvas.Canvas.Ellipse (ax-GsizeToken, ay-GsizeToken, ax+GsizeToken, ay+GsizeToken);
+                end;
+
+                if (count > 3) then   begin
+                   MyCanvas.Canvas.Brush.Color := cor;
+                   MyCanvas.Canvas.TextOut(x - GsizeToken, y- GsizeToken, IntToStr(count));
+                end ;
+
+                MyCanvas.Canvas.Brush.Color := cor;
+             end
+          end
 
           else if tipo = KTransition then
              MyCanvas.Canvas.Rectangle (x-Gsize, y-Gmidsize, x+Gsize, y+Gmidsize);
+
 
           MyCanvas.Canvas.TextOut(x + Gsize + 5, y, s);
 
@@ -838,9 +1062,25 @@ begin
 end;
 
 procedure TForm1.SpinEdit1Change(Sender: TObject);
+
 begin
-  paintbmp.Canvas.Pen.Width:=SpinEdit1.Value;
-  MyCanvas.Canvas.Pen.Width:=SpinEdit1.Value;
+
+  if (Gss < 1) then Exit;
+
+  GElements[Gss].count := SpinEdit1.Value;
+
+  Invalidate;
+  MyCanvasPaint (sender);
+
+end;
+
+procedure TForm1.SpinEdit1Exit(Sender: TObject);
+begin
+  Gs := 0;
+  Gss := 0;
+  Gstate := 0;
+
+  SpinEdit1.Value := 0;
 end;
 
 procedure TForm1.InterpolateBezier (id1, id2 : integer;
@@ -877,9 +1117,12 @@ end;
 begin
    Gi := 0;
    Gs := 0;
+   Gss := 0;
    Gsize := 20;
    Gplacecounter := 0;
    Gtransitioncounter := 0;
    Gmidsize := Gsize div 2;
+   GsizeToken := Gsize div 4;
+
 end.
 
