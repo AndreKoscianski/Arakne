@@ -99,8 +99,8 @@ begin
              atp[2].x := GElements[GElements[i].id2].x;
              atp[2].y := GElements[GElements[i].id2].y;
 
-             // Se arco tiver cardinalidade, escreva
-             if (uidth > 0) then begin
+             // If arc width greater than 1, write that.
+             if (uidth > 1) then begin
                 aux := MyCanvas.Canvas.Font.Size;
                 MyCanvas.Canvas.Font.Size := aux - 2;
                 MyCanvas.Canvas.TextOut(GElements[i].x + 5,
@@ -156,6 +156,31 @@ begin
                 atp[3].x, atp[3].y,
                 atp[4].x, atp[4].y
                 );
+
+             // another arrow (it's a double arc)
+             if (GElements[i].atipo = KArcDouble) then begin
+
+                // arrow line1
+                atp[4].x := atp[1].x + trunc(dx * 0.866 + dy * -0.500);
+                atp[4].y := atp[1].y + trunc(dx * 0.500 + dy *  0.866);
+
+                 MyCanvas.Canvas.Line (
+                    atp[1].x, atp[1].y,
+                    atp[4].x, atp[4].y
+                    );
+
+                 // arrow line2
+                 atp[4].x := atp[1].x + trunc(dx *  0.866 + dy * 0.500);
+                 atp[4].y := atp[1].y + trunc(dx * -0.500 + dy * 0.866);
+
+                 MyCanvas.Canvas.Line (
+                    atp[1].x, atp[1].y,
+                    atp[4].x, atp[4].y
+                    );
+
+
+
+             end;   // if double arc
 
 
 

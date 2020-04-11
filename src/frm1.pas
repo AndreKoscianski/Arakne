@@ -5,19 +5,24 @@ unit frm1;
 interface
 
 uses
-  Classes, SysUtils, FileUtil, uPSComponent, Forms, Controls, Graphics, Dialogs,
-  ExtCtrls, Buttons, Clipbrd, LCLIntf, LCLType, StdCtrls, Spin, Menus, DOM,
-  XMLRead, XMLWrite
+  Classes, SysUtils, FileUtil, uPSComponent, Forms, Controls, Graphics, Dialogs
+  ,ExtCtrls, Buttons, Clipbrd, LCLIntf, LCLType, StdCtrls, Spin, Menus, DOM
+  ,XMLRead, XMLWrite
+  ,INIFiles
+  ,FormConfig
   ;
 //,GraphUtil;
 
 type
   { TForm1 }
 
+  // type used in a form procedure
   TArray4 = array[1..4] of TPoint;
 
   TForm1 = class(TForm)
-    btnCopy: TBitBtn;
+    btnPause: TBitBtn;
+    btnPlay: TBitBtn;
+    btnStep: TBitBtn;
     Edit1: TEdit;
     MainMenu1: TMainMenu;
     MenuItem1: TMenuItem;
@@ -28,6 +33,9 @@ type
     FileMenuQuit: TMenuItem;
     FileMenuNew: TMenuItem;
     MenuItem3: TMenuItem;
+    MenuItem4: TMenuItem;
+    MISettings: TMenuItem;
+    MIDoubleArc: TMenuItem;
     MIInvert: TMenuItem;
     MICount: TMenuItem;
     MIRename: TMenuItem;
@@ -39,12 +47,15 @@ type
     SaveDialog1: TSaveDialog;
     CanvasScroller: TScrollBox;
     SpinEdit1: TSpinEdit;
+    Timer1: TTimer;
     ToolErase: TSpeedButton;
     ToolRect: TSpeedButton;
     ToolPointer: TSpeedButton;
     ToolLine: TSpeedButton;
     ToolOval: TSpeedButton;
-    procedure btnCopyClick(Sender: TObject);
+    procedure btnPauseClick(Sender: TObject);
+    procedure btnPlayClick(Sender: TObject);
+    procedure btnStepClick(Sender: TObject);
     procedure btnNewClick(Sender: TObject);
     procedure btnOpenClick(Sender: TObject);
     procedure btnPasteClick(Sender: TObject);
@@ -58,10 +69,13 @@ type
     procedure FormCreate(Sender: TObject);
     procedure MenuFileOpenClick(Sender: TObject);
     procedure MenuFileSaveAsClick(Sender: TObject);
+    procedure MenuItem4Click(Sender: TObject);
     procedure MICountClick(Sender: TObject);
     procedure MIDeleteClick(Sender: TObject);
+    procedure MIDoubleArcClick(Sender: TObject);
     procedure MIInvertClick(Sender: TObject);
     procedure MIRenameClick(Sender: TObject);
+    procedure MISettingsClick(Sender: TObject);
     procedure MyCanvasClick(Sender: TObject);
     procedure MyCanvasDblClick(Sender: TObject);
     procedure MyCanvasMouseDown(Sender: TObject; Button: TMouseButton;
@@ -73,6 +87,7 @@ type
     procedure RenderPetriNet(Sender: TObject);
     procedure SpinEdit1Change(Sender: TObject);
     procedure SpinEdit1Exit(Sender: TObject);
+    procedure Timer1Timer(Sender: TObject);
   private
     { private declarations }
     function MouseSelectedElement (pX, pY: integer) : boolean;
@@ -90,8 +105,16 @@ type
     procedure PrepareToPlayPetriNet;
     procedure ArmTransitions;
     function PlayPetriNet : integer;
+
+    procedure LoadConfiguration;
+    procedure SaveConfiguration;
+
   public
     { public declarations }
+    //function GetFont:TFont;
+
+    var GFont : TFont;
+
   end;
 
 var
@@ -102,9 +125,7 @@ var
   MouseIsDown: Boolean;
   PrevX, PrevY: Integer;
 
-implementation
 
-{$R *.lfm}
 
 const
   KPlace = 1;
@@ -114,6 +135,8 @@ const
   KCriandoLinha = 5;
   KNothing = 6;
   KPopupMenu = 7;
+  KArcNormal = 8;
+  KArcDouble = 9;
   KLengthName = 15;
   KNumTransitions = 500;
   KNumElements = 1000;
@@ -128,7 +151,8 @@ type TElement = record
    KPlace: (count : integer);
    KTransition: (source: array[1..KNumBranches] of integer;
                  target: array[1..KNumBranches] of integer);
-   KArc:    (id1, id2, uidth: integer;)
+   KArc:    (id1, id2, uidth, atipo: integer;)
+
 end;
 
 
@@ -138,22 +162,34 @@ var
    ,Gs1, Gs2 // while creating an arrow
    ,Gsize , Gmidsize   // current size to draw element
    ,GsizeToken
+   ,GAnimInterval
    ,Gstate
    ,Gplacecount
    ,Gtransitioncount
    : integer;
 
    GElements       : array[1..KNumElements] of TElement;
-   GTransitionList : array[1..KNumTransitions] of integer;
    Gstr            : array[1..KNumElements] of string;
+
+   GFont : TFont;
+
+implementation
+
+{$R *.lfm}
+
+
 
 { TForm1 }
 
 {$I xml.pas}
 
-{$I playpetri.pas}
+{$I playpetri2.pas}
 
 {$I render.pas}
+
+{$I config.pas}
+
+
 
 procedure TForm1.RemoverElemento;
 var i: integer;
@@ -249,7 +285,7 @@ begin
     RenderPetriNet(Sender);
 end;
 
-procedure TForm1.btnCopyClick(Sender: TObject);
+procedure TForm1.btnStepClick(Sender: TObject);
 var
     k: integer;
 begin
@@ -277,6 +313,22 @@ begin
   RenderPetriNet(Sender);
   //Clipboard.Assign(paintbmp);
 
+end;
+
+procedure TForm1.btnPlayClick(Sender: TObject);
+begin
+  Timer1.Interval := GAnimInterval;
+
+  PrepareToPlayPetriNet;
+  ArmTransitions;
+
+  Timer1.Enabled := true;
+
+end;
+
+procedure TForm1.btnPauseClick(Sender: TObject);
+begin
+  Timer1.Enabled := False;
 end;
 
 procedure TForm1.btnPasteClick(Sender: TObject);
@@ -395,12 +447,18 @@ end;
 
 procedure TForm1.FileMenuQuitClick(Sender: TObject);
 begin
-   Application.Terminate;
+  SaveConfiguration;
+  Application.Terminate;
 end;
 
 
 procedure TForm1.FormCreate(Sender: TObject);
 begin
+
+  GFont := MyCanvas.Font;
+
+  LoadConfiguration;
+
   // We create a new file/canvas/document when
   // it starts up
   btnNewClick(Sender);
@@ -440,6 +498,13 @@ begin
   end;
 end;
 
+procedure TForm1.MenuItem4Click(Sender: TObject);
+begin
+
+end;
+
+
+
 
 procedure TForm1.MICountClick(Sender: TObject);
 begin
@@ -467,6 +532,20 @@ begin
 
 end;
 
+
+procedure TForm1.MIDoubleArcClick(Sender: TObject);
+begin
+  if (Gs < 1) then Exit;
+
+  if (GElements[Gs].atipo = KArcDouble) then
+     GElements[Gs].atipo := KArcNormal
+  else
+     GElements[Gs].atipo := KArcDouble;
+
+  Invalidate;
+  RenderPetriNet(Sender);
+end;
+
 procedure TForm1.MIInvertClick(Sender: TObject);
 var aux: integer;
 begin
@@ -478,7 +557,6 @@ begin
 
    Invalidate;
    RenderPetriNet(Sender);
-
 end;
 
 procedure TForm1.MIRenameClick(Sender: TObject);
@@ -492,6 +570,11 @@ begin
   Edit1.MaxLength := KLengthName;
   Edit1.SetFocus;
 
+end;
+
+procedure TForm1.MISettingsClick(Sender: TObject);
+begin
+  Form2.Show;
 end;
 
 
@@ -550,11 +633,20 @@ begin
 
      if (Gs < 1) then Exit;
 
-     MICount.Enabled  := (GElements[Gs].tipo = KPlace)
+     MICount.Visible  := (GElements[Gs].tipo = KPlace)
                          or
                          (GElements[Gs].tipo = KArc);
 
-     MIInvert.Enabled := (GElements[Gs].tipo = KArc);
+     if (GElements[Gs].tipo = KArc) then begin
+        MIInvert.Visible    := true; //(GElements[Gs].tipo = KArc);
+        MIDoubleArc.Visible := true; //(GElements[Gs].tipo = KArc);
+
+        MiDoubleArc.Checked := GElements[Gs].atipo = (KArcDouble);
+     end else begin
+        MIInvert.Visible    := false;
+        MIDoubleArc.Visible := false;
+        MIRename.Visible    := true; //(GElements[Gs].tipo <> KArc);
+     end;
 
      PopupMenu1.PopUp(Form1.Left + CanvasScroller.Left + pX,
                       Form1.Top + CanvasScroller.Left + pY + 50);
@@ -593,6 +685,7 @@ begin
     GElements[Gi].tipo := KArc;
     GElements[Gi].id1 := Gs;
     GElements[Gi].id2 := -1;
+    GElements[Gi].uidth := 1;
 
     Gs1 := Gs;
 
@@ -717,8 +810,10 @@ begin
 
   if (GElements[Gss].tipo = KPlace) then
      GElements[Gss].count := SpinEdit1.Value
-  else
-     GElements[Gss].uidth := SpinEdit1.Value;
+
+  else // arcs are always non-zero
+     if (SpinEdit1.Value > 0) then
+        GElements[Gss].uidth := SpinEdit1.Value;
 
   Invalidate;
   RenderPetriNet (sender);
@@ -734,6 +829,14 @@ begin
   SpinEdit1.Value := 0;
 end;
 
+procedure TForm1.Timer1Timer(Sender: TObject);
+begin
+    ArmTransitions;
+    PlayPetriNet;
+    Invalidate;
+    RenderPetriNet(Sender);
+end;
+
 
 
 
@@ -747,6 +850,8 @@ begin
    Gtransitioncount := 0;
    Gmidsize := Gsize div 2;
    GsizeToken := Gsize div 4;
+
+   GAnimInterval := 500;
 
 end.
 

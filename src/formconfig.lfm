@@ -1,0 +1,86 @@
+object Form2: TForm2
+  Left = 441
+  Height = 257
+  Top = 189
+  Width = 431
+  Caption = 'Settings'
+  ClientHeight = 257
+  ClientWidth = 431
+  OnActivate = FormActivate
+  LCLVersion = '1.8.0.6'
+  object ButtonDone: TButton
+    Left = 336
+    Height = 32
+    Top = 24
+    Width = 75
+    Caption = 'Done'
+    OnClick = ButtonDoneClick
+    TabOrder = 0
+  end
+  object PageControl1: TPageControl
+    Left = 16
+    Height = 200
+    Top = 24
+    Width = 280
+    ActivePage = TabSheet1
+    TabIndex = 0
+    TabOrder = 1
+    object TabSheet1: TTabSheet
+      Caption = 'Render'
+      ClientHeight = 167
+      ClientWidth = 274
+      object Label1: TLabel
+        Left = 8
+        Height = 15
+        Top = 26
+        Width = 72
+        Caption = 'Object size'
+        ParentColor = False
+      end
+      object EditSize: TEdit
+        Left = 96
+        Height = 25
+        Top = 26
+        Width = 48
+        TabOrder = 0
+        Text = 'EditSize'
+      end
+      object ButtonFont: TButton
+        Left = 8
+        Height = 25
+        Top = 88
+        Width = 75
+        Caption = 'Fonts'
+        OnClick = ButtonFontClick
+        TabOrder = 1
+      end
+    end
+    object TabSheet2: TTabSheet
+      Caption = 'Play'
+      ClientHeight = 167
+      ClientWidth = 274
+      object Label2: TLabel
+        Left = 16
+        Height = 15
+        Top = 24
+        Width = 121
+        Caption = 'Animation Interval'
+        ParentColor = False
+      end
+      object EditAnim: TEdit
+        Left = 40
+        Height = 25
+        Top = 48
+        Width = 64
+        TabOrder = 0
+        Text = 'EditAnim'
+      end
+    end
+  end
+  object FontDialog1: TFontDialog
+    MinFontSize = 0
+    MaxFontSize = 0
+    left = 344
+    top = 104
+  end
+end

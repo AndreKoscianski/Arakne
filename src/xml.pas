@@ -170,6 +170,8 @@ var
       // ===Places===
       Members := Doc.GetElementsByTagName('place');
 
+      Gplacecount := Members.Count;
+
       for i:= 0 to Members.Count - 1 do begin
 
          node := Members[i];
@@ -187,6 +189,8 @@ var
 
       // ===Transitions===
       Members := Doc.GetElementsByTagName('transition');
+
+      Gtransitioncount := Members.Count;
 
       for i:= 0 to Members.Count - 1 do begin
 
@@ -221,7 +225,9 @@ var
          GElements[Gi].tipo := KArc;
 
          if (uidth > 0) then
-            GElements[Gi].uidth := uidth;
+            GElements[Gi].uidth := uidth
+         else
+            GElements[Gi].uidth := 1;
 
 
          // marque na linha coordenadas do centro dela
@@ -331,7 +337,7 @@ begin
     TDOMElement(node).SetAttribute ('type'  ,'normal');
     RootNode.AppendChild(node);
 
-    if (uidth > 0) then begin
+    if (uidth > 1) then begin
       node2 := Doc.CreateElement ('inscription');
       node.AppendChild (node2);
       node3 := Doc.CreateElement ('text');
