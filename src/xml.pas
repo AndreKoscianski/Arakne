@@ -160,7 +160,9 @@ var
   Members: TDOMNodeList;
   i, x, y, count, uidth: integer;
   sid, sname : string;
-  begin
+begin
+
+    Gi := 0;
 
     try
       ReadXMLFile(Doc, s);

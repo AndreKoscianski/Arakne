@@ -18,6 +18,7 @@ type
 
   // type used in a form procedure
   TArray4 = array[1..4] of TPoint;
+  TMatrix = array of array of integer;
 
   TForm1 = class(TForm)
     btnPause: TBitBtn;
@@ -34,6 +35,8 @@ type
     FileMenuNew: TMenuItem;
     MenuItem3: TMenuItem;
     MenuItem4: TMenuItem;
+    MIImage: TMenuItem;
+    MIInvariants: TMenuItem;
     MISettings: TMenuItem;
     MIDoubleArc: TMenuItem;
     MIInvert: TMenuItem;
@@ -46,6 +49,7 @@ type
     PSScript1: TPSScript;
     SaveDialog1: TSaveDialog;
     CanvasScroller: TScrollBox;
+    SaveDialogBMP: TSaveDialog;
     SpinEdit1: TSpinEdit;
     Timer1: TTimer;
     ToolErase: TSpeedButton;
@@ -69,10 +73,12 @@ type
     procedure FormCreate(Sender: TObject);
     procedure MenuFileOpenClick(Sender: TObject);
     procedure MenuFileSaveAsClick(Sender: TObject);
-    procedure MenuItem4Click(Sender: TObject);
+    procedure MenuFileSaveClick(Sender: TObject);
+    procedure MIImageClick(Sender: TObject);
     procedure MICountClick(Sender: TObject);
     procedure MIDeleteClick(Sender: TObject);
     procedure MIDoubleArcClick(Sender: TObject);
+    procedure MIInvariantsClick(Sender: TObject);
     procedure MIInvertClick(Sender: TObject);
     procedure MIRenameClick(Sender: TObject);
     procedure MISettingsClick(Sender: TObject);
@@ -108,6 +114,11 @@ type
 
     procedure LoadConfiguration;
     procedure SaveConfiguration;
+    procedure ComputeMatrix;
+    procedure ComputeInvariants;
+    procedure TransposeMatrix;
+
+
 
   public
     { public declarations }
@@ -144,7 +155,7 @@ const
 
 
 type TElement = record
-   x, y: integer;
+   x, y, seqnumber: integer;
    s: String[KLengthName];
    active: boolean;
    case tipo : integer of
@@ -189,6 +200,7 @@ implementation
 
 {$I config.pas}
 
+{$I properties2.pas}
 
 
 procedure TForm1.RemoverElemento;
@@ -266,6 +278,7 @@ end;
 
 procedure TForm1.btnNewClick(Sender: TObject);
 begin
+  exit;
     // if our bitmap is already Create-ed (TBitmap.Create)
     // then start fresh
     if paintbmp <> nil then
@@ -498,10 +511,53 @@ begin
   end;
 end;
 
-procedure TForm1.MenuItem4Click(Sender: TObject);
+procedure TForm1.MenuFileSaveClick(Sender: TObject);
+begin
+  if SaveDialog1.Files.Count > 0 then begin
+    // if the user enters a file name without a .bmp
+    // extension, we will add it
+    if RightStr(SaveDialog1.FileName, 5) <> '.pnml' then
+      SaveDialog1.FileName:=SaveDialog1.FileName+'.pnml';
+
+    GereXML(SaveDialog1.FileName);
+  end;
+end;
+
+procedure TForm1.MIImageClick(Sender: TObject);
+var
+   r1, r2: TRect;
+   bmp: TBitmap;
+
 begin
 
+  SaveDialogBMP.Execute;
+
+  if SaveDialogBMP.Files.Count > 0 then begin
+    // if the user enters a file name without a .bmp
+    // extension, we will add it
+    if RightStr(SaveDialogBMP.FileName, 4) <> '.bmp' then
+      SaveDialogBMP.FileName:=SaveDialog1.FileName+'.bmp';
+  end else
+     Exit;
+
+  if bmp <> nil then
+    bmp.Destroy;
+
+  bmp := TBitmap.Create;
+
+  bmp.PixelFormat := pf32bit;
+  r1 := Mycanvas.clientrect;
+
+  bmp.SetSize(r1.Width, r1.Height);
+
+  bmp.Canvas.CopyRect (r1, Mycanvas.Canvas, r1);
+
+  bmp.SaveToFile (SaveDialogBMP.FileName);
+
+  bmp.free;
 end;
+
+
 
 
 
@@ -544,6 +600,11 @@ begin
 
   Invalidate;
   RenderPetriNet(Sender);
+end;
+
+procedure TForm1.MIInvariantsClick(Sender: TObject);
+begin
+   ComputeInvariants;
 end;
 
 procedure TForm1.MIInvertClick(Sender: TObject);
@@ -855,6 +916,37 @@ begin
 
 end.
 
+(*
+
+procedure TForm1.Button2Click(Sender: TObject);
+var
+  bmp: TBitmap;
+  R: TRect;
+  png : TPortableNetworkGraphic;
+begin
+  // bmp, png
+  bmp := TBitmap.Create;
+  png := TPortableNetworkGraphic.Create;
+
+  try
+    // bmp
+    R := Rect(0, 0, BarcodeQR1.Width, BarcodeQR1.Height);
+    bmp.SetSize(BarcodeQR1.Width, BarcodeQR1.Height);
+    bmp.Canvas.Brush.Color := clWhite;
+    bmp.Canvas.FillRect(R);
+    BarcodeQR1.PaintOnCanvas(bmp.Canvas, R);
+    bmp.SaveToFile('barcode.bmp');
+    // png
+    png.Assign(bmp);
+    png.SaveToFile('barcode.png');
+
+  finally
+    bmp.Free;
+    png.Free;
+  end;
+end;
+
+*)
 
 (*
 Software Implementation of Petri nets and compilation of rule-based

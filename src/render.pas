@@ -134,6 +134,12 @@ begin
                    atp[3].y
                    );
 
+
+            // Reuse variable, size of arrow
+            dx := dx / 2;
+            dy := dy / 2;
+
+
             MyCanvas.Canvas.Pen.Color := clBlack;
             MyCanvas.Canvas.Pen.Width := 1;
 
@@ -178,11 +184,7 @@ begin
                     atp[4].x, atp[4].y
                     );
 
-
-
              end;   // if double arc
-
-
 
             (* if (atp[1].x < atp[2].x) then atp[2].x := atp[2].x - Gsize;
              if (atp[2].x < atp[1].x) then atp[2].x := atp[2].x + Gsize;
@@ -242,12 +244,17 @@ begin
 
           else if tipo = KTransition then begin
 
-             MyCanvas.Canvas.Rectangle (x-Gsize, y-Gmidsize, x+Gsize, y+Gmidsize);
+             cor := MyCanvas.Canvas.Brush.Color;
+
+             if (cor = clWhite) then
+                MyCanvas.Canvas.Brush.Color := clBlack;
+
+             MyCanvas.Canvas.Rectangle (x-Gsize, y-Gsizetoken, x+Gsize, y+Gsizetoken);
+
+             MyCanvas.Canvas.Brush.Color := cor;
 
              MyCanvas.Canvas.TextOut(x + Gsize + 5, y, s);
           end // Transition
        end;
   end;
-
-
 end; 
