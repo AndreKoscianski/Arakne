@@ -40,23 +40,24 @@ var i, ax, ay, aux: integer;
     d, dx, dy: real;
     atp : array[1..4] of TPoint;
     cor : TColor;
-
+    k : integer;
 begin
 
   MyCanvas.Canvas.Brush.Color := clWhite;
   MyCanvas.Canvas.Pen  .Color := clBlack;
 
+  k := High(GSelectedElements);
 
   for i:=1 to Gi do begin
 
 
       if GElements[i].tipo = KNothing then Continue;
 
-
       // Se elemento selecionado, cor = amarelo
-      if (Gss = i) then
-         MyCanvas.Canvas.Brush.Color := clYellow
-      else if (Gs = i) then
+      //if (Gss = i) then
+      //   MyCanvas.Canvas.Brush.Color := clYellow
+      //else
+      if (Gs = i) or GElements[i].selected then
          MyCanvas.Canvas.Brush.Color := clOlive
       else
          MyCanvas.Canvas.Brush.Color := clWhite;
@@ -73,7 +74,7 @@ begin
                 MyCanvas.Canvas.Line (
                    GElements[GElements[i].id1].x,
                    GElements[GElements[i].id1].y,
-                   prevX, prevY);
+                   GNewX, GNewY);
                 Continue;
              end ;
 
@@ -255,6 +256,22 @@ begin
 
              MyCanvas.Canvas.TextOut(x + Gsize + 5, y, s);
           end // Transition
-       end;
+       end; // With
+  end; // for
+
+  // User is selecting area.
+  // Draw a rectangle.
+
+  if ((GPrevX > -1) and (GNewX > -1)) then begin
+
+     MyCanvas.Canvas.Pen.Color := clOlive;
+     MyCanvas.Canvas.Brush.Style := bsClear;
+
+     MyCanvas.Canvas.Rectangle (GPrevX, GPrevY, GNewX, GNewY);
+
+     MyCanvas.Canvas.Brush.Style := bsSolid;
+
+
   end;
+
 end; 

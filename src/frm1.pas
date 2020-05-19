@@ -117,6 +117,8 @@ type
     procedure ComputeMatrix;
     procedure ComputeInvariants;
     procedure TransposeMatrix;
+    function GatherSelectedObjects:boolean;
+    procedure MovaOsCabra;
 
 
 
@@ -134,7 +136,9 @@ var
   paintbmp: TBitmap;
 
   MouseIsDown: Boolean;
-  PrevX, PrevY: Integer;
+  GPrevX, GPrevY, GNewX, GNewY,
+  GDragX, GDragY,
+  GNewDragX, GNewDragY: Integer;
 
 
 
@@ -148,6 +152,18 @@ const
   KPopupMenu = 7;
   KArcNormal = 8;
   KArcDouble = 9;
+  KSelectingRectangle = 10;
+  KSelectedObjects = 11;
+
+  KSHovering = 0;
+  KSStartRectangle = 101;
+  KSDefiningRectangle = 102;
+  KSDraggingObject = 103;
+  KSHoveringWithRectangle = 104;
+  KSStartDraggingSeveral = 105;
+  KSDraggingSeveral = 106;
+
+
   KLengthName = 15;
   KNumTransitions = 500;
   KNumElements = 1000;
@@ -157,7 +173,7 @@ const
 type TElement = record
    x, y, seqnumber: integer;
    s: String[KLengthName];
-   active: boolean;
+   selected: boolean;
    case tipo : integer of
    KPlace: (count : integer);
    KTransition: (source: array[1..KNumBranches] of integer;
@@ -169,11 +185,12 @@ end;
 
 var
     Gi  // current element being created
-   ,Gs, Gss // current element selected
+   ,Gs  // current element selected
    ,Gs1, Gs2 // while creating an arrow
    ,Gsize , Gmidsize   // current size to draw element
    ,GsizeToken
    ,GAnimInterval
+   ,GMagnetGrid
    ,Gstate
    ,Gplacecount
    ,Gtransitioncount
@@ -183,6 +200,9 @@ var
    Gstr            : array[1..KNumElements] of string;
 
    GFont : TFont;
+
+
+   GSelectedElements : array of integer;
 
 implementation
 
@@ -200,7 +220,7 @@ implementation
 
 {$I config.pas}
 
-{$I properties2.pas}
+{$I properties4.pas}
 
 
 procedure TForm1.RemoverElemento;
@@ -224,6 +244,66 @@ begin
           GElements[i].tipo := KNothing;
    end;
 end;
+function TForm1.GatherSelectedObjects: boolean;
+var x1,y1,x2,y2,i,k: integer;
+begin
+   // Prepare coordinates of rectangle
+   if GPrevX < GNewX then begin
+      x1 := GPrevx; x2 := GNewx;
+   end else begin
+      x2 := GPrevx; x1 := GNewx;
+   end;
+   if GPrevY < GNewY then begin
+      y1 := GPrevy; y2 := GNewy;
+   end else begin
+      y2 := GPrevy; y1 := GNewy;
+   end;
+
+   // empty selection
+   SetLength (GSelectedElements, 0);
+   k := 0;
+
+   // test each element
+   for i := 0 to Gi do
+      if    (GElements[i].x >= x1)
+        and (GElements[i].x <= x2)
+        and (GElements[i].y >= y1)
+        and (GElements[i].y <= y2)
+      then begin
+         inc (k);
+         // SetLength (GSelectedElements, k);
+         // GSelectedElements[k] := i;
+          GElements[i].selected := true;
+      end;
+
+   GatherSelectedObjects := (k > 0);
+
+   // if there's no selected object,
+   //    clear selection rectangle.
+   if (k < 1) then
+       GPrevX := -1;
+
+end;
+
+procedure TForm1.MovaOsCabra;
+var
+   i, dx, dy: integer;
+begin
+   dx := GNewDragX - GDragX;
+   dy := GNewDragY - GDragY;
+
+   GPrevX := GPrevX + dx;
+   GPrevY := GPrevY + dy;
+
+   GNewX  := GNewX  + dx;
+   GNewY  := GNewY  + dy;
+
+   for i := 1 to Gi do
+      if GElements[i].selected then begin
+         GElements[i].x := GElements[i].x + dx;
+         GElements[i].y := GElements[i].y + dy;
+      end
+end;
 
 
 procedure TForm1.FormClose(Sender: TObject; var CloseAction: TCloseAction);
@@ -235,7 +315,7 @@ function TForm1.MouseSelectedElement (pX, pY: integer) : boolean;
 var
  i : integer;
 begin
-      Gs := 0;
+      Gs := -1;
 
      for i:=1 to Gi do begin
         with GElements[i] do begin
@@ -433,11 +513,11 @@ procedure TForm1.Edit1EditingDone(Sender: TObject);
 begin
 
   Gstate := 0;
-
-  GElements[Gss].s := Edit1.Text;
+  //Gss
+  GElements[Gs].s := Edit1.Text;
 
   Gs := 0;
-  Gss := 0;
+  //Gss := 0;
 
   Invalidate;
   RenderPetriNet (Sender);
@@ -564,7 +644,7 @@ end;
 
 procedure TForm1.MICountClick(Sender: TObject);
 begin
-  Gss := Gs;
+  //Gss := Gs;
 
   Gstate := KEditName;
 
@@ -622,7 +702,7 @@ end;
 
 procedure TForm1.MIRenameClick(Sender: TObject);
 begin
-  Gss := Gs;
+  //Gss := Gs;
   Edit1.Text := GElements[Gs].s;
   SpinEdit1.Value := GElements[Gs].count;
 
@@ -646,7 +726,7 @@ begin
   if (Gstate = KEditName) then begin
     Edit1.Text := '';
     Gs := 0;
-    Gss := 0;
+    //Gss := 0;
 
     Gstate := 0;
     Exit;
@@ -655,7 +735,7 @@ begin
 
   if ((not ToolPointer.Down) and (not ToolErase.Down)) then Exit;
 
-  Gss := 0;
+  //Gss := 0;
 
   if (Gs < 1) then
      Exit;
@@ -686,10 +766,13 @@ end;
 
 procedure TForm1.MyCanvasMouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; pX, pY: Integer);
+var
+   i : integer;
 begin
+
   MouseIsDown := True;
 
-
+  // process menu options
   if Button = mbRight then begin
 
      if (Gs < 1) then Exit;
@@ -715,9 +798,66 @@ begin
      Exit;
   end;
 
+  // still menu...
   if Gstate = KPopupMenu then
      Exit;
 
+  // user wandering around, clicked mouse
+  //  over empty space.
+  // maybe he'll begin to trace a rectangle.
+  if (Gstate = KSHovering) and (Gs < 0) then begin
+      GState := KSDefiningRectangle;
+      GPrevX := pX;
+      GPrevY := pY;
+      GNewX  := -1;
+
+      // mark all objects as non-selected.
+       for i:=1 to Gi do
+          GElements[i].selected := false;
+
+      Exit;
+  end;
+
+  // User clicked mouse over an object, probably to drag it.
+  if (GState = KSHovering) and (Gs > -1) then begin
+
+     GState := KSDraggingObject;
+     Exit;
+  end;
+
+  // a selection rectangle exists, user clicked:
+  if (GState = KSHoveringWithRectangle) then begin
+
+     // user clicked outside rectangle.
+     // abandomn selection.
+     if ((pX < GPrevX) or (pX > GNewX) or
+         (pY < GPrevY) or (pY > GNewY)) then begin
+
+        GState := KSHovering;
+
+        // mark all objects as non-selected.
+        for i:=1 to Gi do
+          GElements[i].selected := false;
+
+        // undo rectangle
+        GPrevX := -1;
+
+        Exit;
+
+     // user clicked inside rectangle.
+     // begin dragging objects
+     end else begin
+        GState := KSStartDraggingSeveral;
+
+        GDragX := pX;
+        GDragY := pY;
+
+        Exit;
+     end
+  end;
+
+
+  // drawing a transition
   if ToolRect.Down = true then begin
     inc(Gi);
     inc(Gtransitioncount);
@@ -729,6 +869,8 @@ begin
         source[1] := -1;
         target[1] := -1;
     end;
+
+  // drawing a place
   end else if ToolOval.Down then begin
     inc(Gi);
     inc(Gplacecount);
@@ -738,6 +880,8 @@ begin
         tipo := KPlace;
         s := 'P' + IntToStr (Gplacecount);
     end;
+
+  // drawing an arc
   end else if (ToolLine.Down and (Gs > 0)) then begin
 
     inc(Gi);
@@ -751,46 +895,85 @@ begin
     Gs1 := Gs;
 
     Gstate := KCriandoLinha;
+
   end
+
 end;
 
 procedure TForm1.MyCanvasMouseMove(Sender: TObject; Shift: TShiftState; pX,
   pY: Integer);
+label saidaMouseMove;
 var i:integer;
     n, min: real;
+    ax, ay: integer;
 begin
 
-  if ((Gstate = KEditName) or (Gstate = KPopupMenu)) then Exit;
+  // These actions do not require mouse tracking.
+  if ((Gstate = KEditName) or
+      (Gstate = KPopupMenu)) then
+      Exit;
 
-  // selecting things
-  if ToolPointer.Down then begin
+  // If user selected several objects and is just
+  //    moving mose around, just exit.
+  // Otherwise we got objects selected with a rectangle,
+  //    plus auto-selection with mouse movement = bizarre.
+  if (not MouseIsDown and (Gstate = KSelectedObjects)) then
+     Exit;
 
-    // moving an element
-    if (MouseIsDown) then
+  // user is drawing rectangle
+  if (GState = KSDefiningRectangle) then begin
+    GNewX := pX;
+    GNewY := pY;
 
-       // place or transition selected?
-       if ((Gs > 0) and (GElements[Gs].tipo <> KArc)) then begin
+    goto saidaMouseMove;
+  end;
 
-           // move it!
-           GElements[Gs].x := pX;
-           GElements[Gs].y := pY;
 
-       end else
-          Exit
-    else
+  // user is about to move several objects
+  if (GState = KSStartDraggingSeveral) then begin
+    GState := KSDraggingSeveral;
+    GDragX := pX;
+    GDragY := pY;
+    exit;
+  end;
 
+  // user IS moving several objects...
+  if (GState = KSDraggingSeveral) then begin
+    GNewDragX := pX;
+    GNewDragY := pY;
+
+    MovaOsCabra;
+
+    GDragX := GNewDragX;
+    GDragY := GNewDragY;
+
+    goto saidaMouseMove;
+  end;
+
+
+  // user is just wandering around.
+  // highlight object under the mouse cursor.
+  if (GState = KSHovering) then begin
     MouseSelectedElement (pX, pY);
 
-    Invalidate;
-    RenderPetriNet(Sender);
+    goto saidaMouseMove;
+  end;
 
+    // user is dragging one object around:
+    //  move it!
+    // object follows mouse.
+  if (GState = KSDraggingObject) then begin
+     GElements[Gs].x := pX;
+     GElements[Gs].y := pY;
+
+     goto saidaMouseMove;
   end;
 
   // placing a new element
   if (MouseIsDown and (Gi > 0) and
       (ToolRect.Down or ToolOval.Down)) then begin
 
-     GElements[Gi].x := pX;
+     GElements[Gi].x := pX; //(pX div GMagnetGrid) * GMagnetGrid;
      GElements[Gi].y := pY;
 
      Invalidate;
@@ -801,24 +984,39 @@ begin
   // only get coordinates.
   if ((ToolLine.Down) or (ToolErase.Down)) then begin
 
-     PrevX := pX;
-     PrevY := pY;
+     // we need these coordinates,
+     //   to register the end point of a line being drawn.
+     GNewX := pX;
+     GNewY := pY;
 
+     // and we need these coordinates,
+     //   to highlight and select the object
+     //   being pointed by the cursor.
+     // This applies to both endpoints of an arc.
      MouseSelectedElement (pX, pY);
-     Invalidate;
-     RenderPetriNet (Sender);
+
   end;
 
+ saidaMouseMove:
+  Invalidate;
+  RenderPetriNet (Sender);
 end;
 
 procedure TForm1.MyCanvasMouseUp(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; pX, pY: Integer);
+label saidaMouseUp;
+var
+    aux: integer;
 begin
 
-  MouseIsDown:=False;
+  MouseIsDown := False;
 
+
+  // release mouse during popup menu choice, just exit
   if (Gstate = KPopupMenu) then Exit;
 
+  // release mouse while dragging to create line,
+  //   this is the endpoint.
   if (Gstate = KCriandoLinha) then begin
 
      // Soltar mouse sobre objeto - verifique qual
@@ -849,12 +1047,84 @@ begin
         GElements[GElements[Gi].id2].y) div 2;
 
 
-
      // interface volta ao estado zero
      Gstate := 0;
      Gs := 0;
 
+  end; //KCriandoLinha
+
+  // User stopped moving objects.
+  if  (GState = KSDraggingObject) then begin
+    GState := KSHovering;
+
+    goto saidaMouseUp;
   end;
+
+    // User drawed rectangle, released mouse.
+  if  (GState = KSDefiningRectangle) then begin
+
+    // final coordinates of rectangle
+    GNewX := pX;
+    GNewY := pY;
+
+    // re-order if necessary
+    if (GNewX < GPrevX) then begin
+      aux := GNewX; GNewX := GPrevX; GPrevX := aux;
+    end;
+    if (GNewY < GPrevY) then begin
+      aux := GNewY; GNewY := GPrevY; GPrevY := aux;
+    end;
+
+    // no objects selected: forget rectangle
+    if not GatherSelectedObjects then begin
+        GPrevX := -1;
+        GState := 0;
+
+        goto saidaMouseUp;
+    end;
+
+    // Arrived here, there are objects selected.
+    GState := KSHoveringWithRectangle;
+
+    goto saidaMouseUp;
+
+   end; //KSDefiningRectangle
+
+
+  // There's still a rectangle selecting several objects.
+  // User just released mouse.
+  if (GState = KSDraggingSeveral) then begin
+     GState := KSHoveringWithRectangle;
+     goto saidaMouseUp;
+  end;
+
+(*
+  if (Gstate = KSelectingRectangle) then begin
+
+     GState := 0;
+
+     GNewX := pX;
+     GNewY := pY;
+
+     // Verify if there's something inside
+     //  the rectangle;
+
+     //  AFTER doing that, set GPrevX
+
+     if not GatherSelectedObjects then begin
+        GPrevX := -1;
+        goto saidaMouseUp;
+     end;
+
+     // End of Selection Operation,
+     //   something was selected.
+     GPrevX := -1;
+     GState := KSelectedObjects;
+
+  end;
+ *)
+
+ saidaMouseUp:
 
   Invalidate;
   RenderPetriNet (Sender);
@@ -867,14 +1137,14 @@ procedure TForm1.SpinEdit1Change(Sender: TObject);
 
 begin
 
-  if (Gss < 1) then Exit;
+  if (Gs < 1) then Exit;
 
-  if (GElements[Gss].tipo = KPlace) then
-     GElements[Gss].count := SpinEdit1.Value
+  if (GElements[Gs].tipo = KPlace) then
+     GElements[Gs].count := SpinEdit1.Value
 
   else // arcs are always non-zero
      if (SpinEdit1.Value > 0) then
-        GElements[Gss].uidth := SpinEdit1.Value;
+        GElements[Gs].uidth := SpinEdit1.Value;
 
   Invalidate;
   RenderPetriNet (sender);
@@ -884,7 +1154,7 @@ end;
 procedure TForm1.SpinEdit1Exit(Sender: TObject);
 begin
   Gs := 0;
-  Gss := 0;
+  //Gss := 0;
   Gstate := 0;
 
   SpinEdit1.Value := 0;
@@ -904,8 +1174,8 @@ end;
 
 begin
    Gi := 0;
-   Gs := 0;
-   Gss := 0;
+   Gs := -1;
+  // Gss := 0;
    Gsize := 20;
    Gplacecount := 0;
    Gtransitioncount := 0;
@@ -913,6 +1183,11 @@ begin
    GsizeToken := Gsize div 4;
 
    GAnimInterval := 500;
+
+   GMagnetGrid := 1;
+
+   // no selection rectangle being drawn.
+   GPrevX := -1;
 
 end.
 
@@ -970,6 +1245,44 @@ Ramón Piedrafita Moreno, José Luis Villarroel Salcedo
 play/pause
 play N times
 log results
+
+
+select tool
+
+mouse down out of shape
+drag with Gs = -1
+mouse up with Gs = -1 -> rectangle
+  select all objects
+  Gstate = KSelectedMany
+
+mouse down and
+over shape and
+KSelectedMany
+   KMoveMany
+
+mouse move and
+KMoveMany
+    movemany
+
+
+
+
+
+
+
+hovering
+
+hovering-over-object
+
+clicked-over-object
+
+clicked-over-empty-space
+
+clicked-over-selected-object
+
+
+
+
 
 
 

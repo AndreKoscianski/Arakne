@@ -40,19 +40,35 @@ object Form2: TForm2
       object EditSize: TEdit
         Left = 96
         Height = 25
-        Top = 26
-        Width = 48
+        Top = 21
+        Width = 72
         TabOrder = 0
         Text = 'EditSize'
       end
       object ButtonFont: TButton
         Left = 8
         Height = 25
-        Top = 88
+        Top = 120
         Width = 75
         Caption = 'Fonts'
         OnClick = ButtonFontClick
         TabOrder = 1
+      end
+      object Label3: TLabel
+        Left = 8
+        Height = 15
+        Top = 72
+        Width = 83
+        Caption = 'Magnet Grid:'
+        ParentColor = False
+      end
+      object EditMagnet: TEdit
+        Left = 96
+        Height = 25
+        Top = 64
+        Width = 70
+        TabOrder = 2
+        Text = 'EditMagnet'
       end
     end
     object TabSheet2: TTabSheet

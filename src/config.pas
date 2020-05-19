@@ -37,6 +37,16 @@ begin
        GAnimInterval := 500;
 
 
+    //----------------------------------------
+    str := INI.ReadString (C_SECTION,'MagnetGrid','0');
+
+    aux := StrToInt (str);
+
+    if ((aux > 0) and (aux < 50)) then
+       GMagnetGrid := aux
+    else
+       GMagnetGrid := 5;
+
 
 
   finally
@@ -72,8 +82,9 @@ begin
 
   // Put reading the INI file inside a try/finally block to prevent memory leaks
   try
-    INI.WriteString (C_SECTION,'PlaceSize', IntToStr (Gsize));
+    INI.WriteString (C_SECTION,'PlaceSize'   , IntToStr (Gsize));
     INI.WriteString (C_SECTION,'AnimInterval', IntToStr (GAnimInterval));
+    INI.WriteString (C_SECTION,'MagnetGrid'  , IntToStr (GMagnetGrid));
 
   finally
     INI.Free;

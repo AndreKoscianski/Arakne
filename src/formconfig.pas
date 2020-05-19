@@ -15,11 +15,13 @@ type
   TForm2 = class(TForm)
     ButtonDone: TButton;
     ButtonFont: TButton;
+    EditMagnet: TEdit;
     EditAnim: TEdit;
     EditSize: TEdit;
     FontDialog1: TFontDialog;
     Label1: TLabel;
     Label2: TLabel;
+    Label3: TLabel;
     PageControl1: TPageControl;
     TabSheet1: TTabSheet;
     TabSheet2: TTabSheet;
@@ -79,14 +81,23 @@ begin
       GAnimInterval := aux;
    end;
 
+
+   //-----------------------------------------------
+   aux := StrToInt (EditMagnet.text);
+
+   if (aux > 0) and (aux < 101) then begin
+      GMagnetGrid := aux;
+   end;
+
    Close;
 
 end;
 
 procedure TForm2.FormActivate(Sender: TObject);
 begin
-  EditSize.Text := IntToStr (Gsize);
-  EditAnim.Text := IntToStr (GAnimInterval);
+  EditSize  .Text := IntToStr (Gsize);
+  EditAnim  .Text := IntToStr (GAnimInterval);
+  EditMagnet.Text := IntToStr (GMagnetGrid);
 end;
 
 end.
