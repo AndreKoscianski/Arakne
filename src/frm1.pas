@@ -1006,7 +1006,7 @@ procedure TForm1.MyCanvasMouseUp(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; pX, pY: Integer);
 label saidaMouseUp;
 var
-    aux: integer;
+   i : integer;
 begin
 
   MouseIsDown := False;
@@ -1053,10 +1053,12 @@ begin
 
   end; //KCriandoLinha
 
-  // User stopped moving objects.
+  // User stopped moving a single object.
   if  (GState = KSDraggingObject) then begin
-    GState := KSHovering;
+    GElements[Gs].x := (pX div GMagnetGrid) * GMagnetGrid;
+    GElements[Gs].y := (pY div GMagnetGrid) * GMagnetGrid;
 
+    GState := KSHovering;
     goto saidaMouseUp;
   end;
 
@@ -1069,10 +1071,10 @@ begin
 
     // re-order if necessary
     if (GNewX < GPrevX) then begin
-      aux := GNewX; GNewX := GPrevX; GPrevX := aux;
+      i := GNewX; GNewX := GPrevX; GPrevX := i;
     end;
     if (GNewY < GPrevY) then begin
-      aux := GNewY; GNewY := GPrevY; GPrevY := aux;
+      i := GNewY; GNewY := GPrevY; GPrevY := i;
     end;
 
     // no objects selected: forget rectangle
@@ -1094,7 +1096,21 @@ begin
   // There's still a rectangle selecting several objects.
   // User just released mouse.
   if (GState = KSDraggingSeveral) then begin
+
      GState := KSHoveringWithRectangle;
+
+     // adjust with magnetic grid
+     for i := 1 to Gi do
+        if (GElements[i].selected) then begin
+          GElements[i].x := (GElements[i].x div GMagnetGrid) * GMagnetGrid;
+          GElements[i].y := (GElements[i].y div GMagnetGrid) * GMagnetGrid;
+        end;
+
+     GPrevX := (GPrevX div GMagnetGrid) * GMagnetGrid;
+     GPrevY := (GPrevY div GMagnetGrid) * GMagnetGrid;
+     GNewX  := (GNewX  div GMagnetGrid) * GMagnetGrid;
+     GNewY  := (GNewY  div GMagnetGrid) * GMagnetGrid;
+
      goto saidaMouseUp;
   end;
 
