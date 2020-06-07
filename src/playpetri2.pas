@@ -20,6 +20,8 @@ var
 
   _trEnabled : array of integer;
 
+  _TransitionCount : integer;
+
 
 
 //----------------------------------------------------------------
@@ -67,17 +69,26 @@ begin
 
    EraseLists;
 
-   SetLength (_trInfo,Gtransitioncount);
+   // This is the only moment we need to know
+   //  how many transitions are there.
+   _TransitionCount := 0;
+   for i := 0 to PN[_].Gi do
+      if PN[_].El[i].tipo = KTransition then
+         inc(_TransitionCount);
+
+
+   SetLength (_trInfo,_TransitionCount);
 
    // reserve  position [0] of array to
    //   record number of enabled transitions
-   SetLength (_trEnabled, Gtransitioncount+1);
+   SetLength (_trEnabled, _TransitionCount+1);
 
    // first pass, scan the net,
    //   record all transitions
    nt := 0;
-   for i := 1 to Gi do begin
-      if  GElements[i].tipo = KTransition then begin
+   for i := 0 to PN[_].Gi do begin
+
+      if  PN[_].El[i].tipo = KTransition then begin
 
         _trInfo[nt].id := i;
 
@@ -93,18 +104,18 @@ begin
 
    // second pass, scan the petri net,
    //   link arcs.
-   for i := 1 to Gi do begin
+   for i := 0 to PN[_].Gi do begin
 
      // find an arc
-     if (GElements[i].tipo = KArc) then begin
+     if (PN[_].El[i].tipo = KArc) then begin
 
         // distinguish endpoints
-       if (GElements[GElements[i].id1].tipo = KPlace) then begin
-         idp := GElements[i].id1;
-         idt := GElements[i].id2;
+       if (PN[_].El[PN[_].El[i].id1].tipo = KPlace) then begin
+         idp := PN[_].El[i].id1;
+         idt := PN[_].El[i].id2;
        end else begin
-          idp := GElements[i].id2;
-          idt := GElements[i].id1;
+          idp := PN[_].El[i].id2;
+          idt := PN[_].El[i].id1;
        end;
 
        // find record of the transition
@@ -114,24 +125,24 @@ begin
 
        //------------------------------------------------
        // deal with input conection
-       if (GElements[i].atipo = KArcDouble) or
-          (idp = GElements[i].id1) then begin
+       if (PN[_].El[i].atipo = KArcDouble) or
+          (idp = PN[_].El[i].id1) then begin
 
          new (aux);
          aux^.id := idp;
-         aux^.uidth := GElements[i].uidth;
+         aux^.uidth := PN[_].El[i].uidth;
          aux^.prox := _trInfo[j].input;
          _trInfo[j].input := aux;
        end;
 
      //------------------------------------------------
      // deal with output conection
-     if (GElements[i].atipo = KArcDouble) or
-        (idt = GElements[i].id1) then begin
+     if (PN[_].El[i].atipo = KArcDouble) or
+        (idt = PN[_].El[i].id1) then begin
 
           new (aux);
           aux^.id := idp;
-          aux^.uidth := GElements[i].uidth;
+          aux^.uidth := PN[_].El[i].uidth;
           aux^.prox := _trInfo[j].output;
           _trInfo[j].output := aux;
         end;
@@ -156,7 +167,7 @@ begin
 
 
    // for each transition
-   for i := 0 to GTransitionCount-1 do begin
+   for i := 0 to _TransitionCount-1 do begin
 
       aux := _trInfo[i].input;
 
@@ -166,7 +177,7 @@ begin
       while ((aux <> nil) and (_trInfo[i].enabled)) do begin
 
          _trInfo[i].enabled :=
-           (GElements[aux^.id].count >= aux^.uidth);
+           (PN[_].El[aux^.id].count >= aux^.uidth);
 
          aux := aux^.prox;
       end; // while
@@ -212,8 +223,8 @@ begin;
    // handle inputs
    aux := _trInfo[t].input;
    while (aux <> nil) do begin
-      GElements[aux^.id].count :=
-         GElements[aux^.id].count -
+      PN[_].El[aux^.id].count :=
+         PN[_].El[aux^.id].count -
          aux^.uidth;
 
       aux := aux^.prox;
@@ -222,8 +233,8 @@ begin;
    // handle outputs
    aux := _trInfo[t].output;
    while (aux <> nil) do begin
-      GElements[aux^.id].count :=
-         GElements[aux^.id].count +
+      PN[_].El[aux^.id].count :=
+         PN[_].El[aux^.id].count +
          aux^.uidth;
 
       aux := aux^.prox;

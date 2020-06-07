@@ -5,10 +5,10 @@ var  x1, y1
     ,xc, yc: integer;
 begin
 
-  atp[1].x := GElements[id1].x;
-  atp[1].y := GElements[id1].y;
-  atp[4].x := GElements[id2].x;
-  atp[4].y := GElements[id2].y;
+  atp[1].x := PN[_].El[id1].x;
+  atp[1].y := PN[_].El[id1].y;
+  atp[4].x := PN[_].El[id2].x;
+  atp[4].y := PN[_].El[id2].y;
 
   xc := abs(atp[4].x-atp[1].x);
   yc := abs(atp[4].y-atp[1].x);
@@ -48,21 +48,25 @@ begin
 
   k := High(GSelectedElements);
 
-  for i:=1 to Gi do begin
+  // let's draw a petri net
+  for i:=0 to PN[_].Gi do begin
 
 
-      if GElements[i].tipo = KNothing then Continue;
+      if PN[_].El[i].tipo = KNothing then Continue;
 
       // Se elemento selecionado, cor = amarelo
       //if (Gss = i) then
       //   MyCanvas.Canvas.Brush.Color := clYellow
       //else
-      if (Gs = i) or GElements[i].selected then
+      if (Gs = i) or PN[_].El[i].selected then
          MyCanvas.Canvas.Brush.Color := clOlive
       else
          MyCanvas.Canvas.Brush.Color := clWhite;
 
-       with GElements[i] do begin
+
+      //-------------------------------------
+      // FOR EACH element
+      with PN[_].El[i] do begin
 
           // vamos plotar linha
           if tipo = KArc then begin
@@ -70,10 +74,10 @@ begin
              // a linha ainda não tem elemento final,
              //  arco está sendo traçado!
              // então plote reta até posição atual do mouse.
-             if GElements[i].id2 = -1 then begin
+             if PN[_].El[i].id2 = -1 then begin
                 MyCanvas.Canvas.Line (
-                   GElements[GElements[i].id1].x,
-                   GElements[GElements[i].id1].y,
+                   PN[_].El[PN[_].El[i].id1].x,
+                   PN[_].El[PN[_].El[i].id1].y,
                    GNewX, GNewY);
                 Continue;
              end ;
@@ -86,26 +90,26 @@ begin
              end;
 
              // marque na linha coordenadas do centro dela
-             GElements[i].x :=
-               (GElements[GElements[i].id1].x +
-                GElements[GElements[i].id2].x) div 2;
-             GElements[i].y :=
-               (GElements[GElements[i].id1].y +
-                GElements[GElements[i].id2].y) div 2;
+             PN[_].El[i].x :=
+               (PN[_].El[PN[_].El[i].id1].x +
+                PN[_].El[PN[_].El[i].id2].x) div 2;
+             PN[_].El[i].y :=
+               (PN[_].El[PN[_].El[i].id1].y +
+                PN[_].El[PN[_].El[i].id2].y) div 2;
 
              // centro da linha e posição id2
-             atp[1].x := GElements[GElements[i].id1].x;
-             atp[1].y := GElements[GElements[i].id1].y;
+             atp[1].x := PN[_].El[PN[_].El[i].id1].x;
+             atp[1].y := PN[_].El[PN[_].El[i].id1].y;
 
-             atp[2].x := GElements[GElements[i].id2].x;
-             atp[2].y := GElements[GElements[i].id2].y;
+             atp[2].x := PN[_].El[PN[_].El[i].id2].x;
+             atp[2].y := PN[_].El[PN[_].El[i].id2].y;
 
              // If arc width greater than 1, write that.
              if (uidth > 1) then begin
                 aux := MyCanvas.Canvas.Font.Size;
                 MyCanvas.Canvas.Font.Size := aux - 2;
-                MyCanvas.Canvas.TextOut(GElements[i].x + 5,
-                                        GElements[i].y,
+                MyCanvas.Canvas.TextOut(PN[_].El[i].x + 5,
+                                        PN[_].El[i].y,
                                          IntToStr(uidth));
                 MyCanvas.Canvas.Font.Size := aux;
              end;
@@ -129,8 +133,8 @@ begin
 
             // Draw arc
             MyCanvas.Canvas.Line (
-                   GElements[GElements[i].id1].x + trunc(dx),
-                   GElements[GElements[i].id1].y + trunc(dy),
+                   PN[_].El[PN[_].El[i].id1].x + trunc(dx),
+                   PN[_].El[PN[_].El[i].id1].y + trunc(dy),
                    atp[3].x,
                    atp[3].y
                    );
@@ -165,7 +169,7 @@ begin
                 );
 
              // another arrow (it's a double arc)
-             if (GElements[i].atipo = KArcDouble) then begin
+             if (PN[_].El[i].atipo = KArcDouble) then begin
 
                 // arrow line1
                 atp[4].x := atp[1].x + trunc(dx * 0.866 + dy * -0.500);
@@ -196,8 +200,8 @@ begin
             *)
 
             // Calcule Bezier e plote.
-(*            InterpolateBezier (GElements[i].id1,
-                               GElements[i].id2,
+(*            InterpolateBezier (PN[_].El[i].id1,
+                               PN[_].El[i].id2,
                                atp);
 
             MyCanvas.Canvas.PolyBezier(atp);
@@ -208,10 +212,21 @@ begin
 
           end  // Arc
 
-          else if tipo = KPlace then begin
+          else if (tipo = KPlace) or (tipo = KPlaceC) then begin
+
+             cor := MyCanvas.Canvas.Brush.Color;
+
+             // if place composed and not selected,
+             //   use special color
+             if (tipo = KPlaceC) and (not PN[_].El[i].selected) then
+                MyCanvas.Canvas.Brush.Color := clBlue;
 
              MyCanvas.Canvas.Ellipse (x-Gsize, y-Gsize, x+Gsize, y+Gsize);
 
+             // back to normal color
+             MyCanvas.Canvas.Brush.Color := cor;
+
+             // now draw tokens
              if (count > 0) then begin
 
                 cor := MyCanvas.Canvas.Brush.Color;
@@ -243,18 +258,27 @@ begin
 
           end // Place
 
-          else if tipo = KTransition then begin
+          // Draw Transitions;
+          else if (tipo = KTransition) then begin
 
+             // remember original color.
              cor := MyCanvas.Canvas.Brush.Color;
 
-             if (cor = clWhite) then
-                MyCanvas.Canvas.Brush.Color := clBlack;
+             // if this is a TransitionC and it is not selected,
+             //   paint it blue.
+             if (ttipo = KTransitionC) and (not PN[_].El[i].selected) then
+                MyCanvas.Canvas.Brush.Color := clBlue;
+
+//             if (cor = clWhite) then
+//                   MyCanvas.Canvas.Brush.Color := clBlack;
 
              MyCanvas.Canvas.Rectangle (x-Gsize, y-Gsizetoken, x+Gsize, y+Gsizetoken);
 
+             // reset color
              MyCanvas.Canvas.Brush.Color := cor;
 
              MyCanvas.Canvas.TextOut(x + Gsize + 5, y, s);
+
           end // Transition
        end; // With
   end; // for

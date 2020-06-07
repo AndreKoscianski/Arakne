@@ -1,11 +1,11 @@
 object Form1: TForm1
-  Left = 479
-  Height = 489
-  Top = 128
-  Width = 864
+  Left = 238
+  Height = 692
+  Top = 26
+  Width = 1126
   Caption = 'Arakne'
-  ClientHeight = 468
-  ClientWidth = 864
+  ClientHeight = 671
+  ClientWidth = 1126
   Constraints.MinHeight = 300
   Constraints.MinWidth = 480
   Icon.Data = {
@@ -318,7 +318,7 @@ object Form1: TForm1
   OnCreate = FormCreate
   LCLVersion = '1.8.0.6'
   object ToolPointer: TSpeedButton
-    Left = 8
+    Left = 140
     Height = 32
     Top = 3
     Width = 38
@@ -456,9 +456,10 @@ object Form1: TForm1
       0000000000000000000000000000000000000000000000000000
     }
     GroupIndex = 1
+    OnClick = ToolPointerClick
   end
   object ToolLine: TSpeedButton
-    Left = 64
+    Left = 196
     Height = 32
     Top = 3
     Width = 38
@@ -539,9 +540,10 @@ object Form1: TForm1
       FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00
     }
     GroupIndex = 1
+    OnClick = ToolLineClick
   end
   object ToolRect: TSpeedButton
-    Left = 120
+    Left = 252
     Height = 32
     Top = 3
     Width = 38
@@ -678,9 +680,10 @@ object Form1: TForm1
       0000000000000000000000000000000000000000000000000000
     }
     GroupIndex = 1
+    OnClick = ToolRectClick
   end
   object ToolOval: TSpeedButton
-    Left = 176
+    Left = 308
     Height = 32
     Top = 3
     Width = 38
@@ -817,9 +820,10 @@ object Form1: TForm1
       0000000000000000000000000000000000000000000000000000
     }
     GroupIndex = 1
+    OnClick = ToolOvalClick
   end
   object ToolErase: TSpeedButton
-    Left = 232
+    Left = 984
     Height = 32
     Top = 3
     Width = 38
@@ -962,7 +966,7 @@ object Form1: TForm1
     ParentFont = False
   end
   object btnStep: TBitBtn
-    Left = 560
+    Left = 603
     Height = 32
     Hint = 'Plays 1 step'
     Top = 0
@@ -1106,24 +1110,24 @@ object Form1: TForm1
   end
   object CanvasScroller: TScrollBox
     Left = 8
-    Height = 421
+    Height = 624
     Top = 40
-    Width = 844
-    HorzScrollBar.Page = 828
+    Width = 1106
+    HorzScrollBar.Page = 1090
     HorzScrollBar.Tracking = True
-    VertScrollBar.Page = 405
+    VertScrollBar.Page = 608
     VertScrollBar.Tracking = True
     Anchors = [akTop, akLeft, akRight, akBottom]
-    ClientHeight = 405
-    ClientWidth = 828
+    ClientHeight = 608
+    ClientWidth = 1090
     Color = clAppWorkspace
     ParentColor = False
     TabOrder = 1
     object MyCanvas: TPaintBox
       Left = 0
-      Height = 600
+      Height = 800
       Top = 0
-      Width = 900
+      Width = 1200
       Color = clWhite
       Font.Height = -15
       Font.Name = 'Sans'
@@ -1138,10 +1142,11 @@ object Form1: TForm1
     end
   end
   object SpinEdit1: TSpinEdit
-    Left = 328
+    Left = 371
     Height = 29
     Top = 3
     Width = 47
+    Enabled = False
     Font.Height = -16
     Font.Name = 'Sans'
     OnChange = SpinEdit1Change
@@ -1150,17 +1155,18 @@ object Form1: TForm1
     TabOrder = 2
   end
   object Edit1: TEdit
-    Left = 384
+    Left = 428
     Height = 25
     Top = 3
     Width = 152
+    Enabled = False
     MaxLength = 20
     OnEditingDone = Edit1EditingDone
     OnExit = Edit1Exit
     TabOrder = 3
   end
   object btnPlay: TBitBtn
-    Left = 608
+    Left = 652
     Height = 32
     Hint = 'Plays Petri Net'
     Top = 0
@@ -1301,7 +1307,7 @@ object Form1: TForm1
     TabOrder = 4
   end
   object btnPause: TBitBtn
-    Left = 656
+    Left = 703
     Height = 32
     Top = 0
     Width = 32
@@ -1440,19 +1446,43 @@ object Form1: TForm1
     OnClick = btnPauseClick
     TabOrder = 5
   end
+  object Button1: TButton
+    Left = 1032
+    Height = 25
+    Top = 0
+    Width = 75
+    Caption = 'Debug'
+    OnClick = Button1Click
+    TabOrder = 6
+  end
+  object ComboBox1: TComboBox
+    Left = 8
+    Height = 27
+    Top = 3
+    Width = 112
+    Enabled = False
+    ItemHeight = 0
+    ItemIndex = 0
+    Items.Strings = (
+      'Root'
+    )
+    OnChange = ComboBox1Change
+    TabOrder = 7
+    Text = 'Root'
+  end
   object OpenDialog1: TOpenDialog
-    Filter = 'PNML Files (*.pnml)|*.pnml'
+    Filter = 'ksv Files (*.ksv)|*.ksv'
     left = 704
     top = 104
   end
   object SaveDialog1: TSaveDialog
-    Filter = 'Pnml Files (*.pnml)|*.pnml'
+    Filter = 'Ksv Files (*.ksv)|*.ksv'
     left = 640
     top = 144
   end
-  object PopupMenu1: TPopupMenu
-    left = 616
-    top = 66
+  object PopupMenuArc: TPopupMenu
+    left = 912
+    top = 56
     object MIDoubleArc: TMenuItem
       Caption = 'Double Arc'
       OnClick = MIDoubleArcClick
@@ -1473,12 +1503,6 @@ object Form1: TForm1
       Caption = 'Delete'
       OnClick = MIDeleteClick
     end
-  end
-  object PSScript1: TPSScript
-    CompilerOptions = []
-    Plugins = <>
-    UsePreProcessor = False
-    left = 800
   end
   object MainMenu1: TMainMenu
     left = 760
@@ -1538,5 +1562,46 @@ object Form1: TForm1
     Filter = 'BMP Files (*.bmp)|*.bmp'
     left = 649
     top = 230
+  end
+  object PopupMenuPlace: TPopupMenu
+    left = 912
+    top = 120
+    object MIPlaceC: TMenuItem
+      Caption = 'Create Clone'
+      Enabled = False
+    end
+    object MIPTokens: TMenuItem
+      Caption = 'Tokens'
+      OnClick = MICountClick
+    end
+    object MIPRename: TMenuItem
+      Caption = 'Rename'
+      OnClick = MIRenameClick
+    end
+    object MIPDelete: TMenuItem
+      Caption = 'Delete'
+      OnClick = MIDeleteClick
+    end
+  end
+  object PopupMenuTransition: TPopupMenu
+    left = 912
+    top = 184
+    object MITTransitionC: TMenuItem
+      Caption = 'Create Sub-PN'
+      OnClick = MITTransitionCClick
+    end
+    object MITEditSubPN: TMenuItem
+      Caption = 'Edit Sub-PN'
+      Enabled = False
+      OnClick = MITEditSubPNClick
+    end
+    object MITRename: TMenuItem
+      Caption = 'Rename'
+      OnClick = MIRenameClick
+    end
+    object MITDelete: TMenuItem
+      Caption = 'Delete'
+      OnClick = MIDeleteClick
+    end
   end
 end

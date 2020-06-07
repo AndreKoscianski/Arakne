@@ -24,6 +24,8 @@ type
     btnPause: TBitBtn;
     btnPlay: TBitBtn;
     btnStep: TBitBtn;
+    Button1: TButton;
+    ComboBox1: TComboBox;
     Edit1: TEdit;
     MainMenu1: TMainMenu;
     MenuItem1: TMenuItem;
@@ -35,6 +37,14 @@ type
     FileMenuNew: TMenuItem;
     MenuItem3: TMenuItem;
     MenuItem4: TMenuItem;
+    MITEditSubPN: TMenuItem;
+    MITDelete: TMenuItem;
+    MITRename: TMenuItem;
+    MITTransitionC: TMenuItem;
+    MIPDelete: TMenuItem;
+    MIPlaceC: TMenuItem;
+    MIPRename: TMenuItem;
+    MIPTokens: TMenuItem;
     MIImage: TMenuItem;
     MIInvariants: TMenuItem;
     MISettings: TMenuItem;
@@ -45,8 +55,9 @@ type
     MIDelete: TMenuItem;
     MyCanvas: TPaintBox;
     OpenDialog1: TOpenDialog;
-    PopupMenu1: TPopupMenu;
-    PSScript1: TPSScript;
+    PopupMenuTransition: TPopupMenu;
+    PopupMenuArc: TPopupMenu;
+    PopupMenuPlace: TPopupMenu;
     SaveDialog1: TSaveDialog;
     CanvasScroller: TScrollBox;
     SaveDialogBMP: TSaveDialog;
@@ -65,6 +76,8 @@ type
     procedure btnPasteClick(Sender: TObject);
     procedure btnResizeClick(Sender: TObject);
     procedure btnSaveClick(Sender: TObject);
+    procedure Button1Click(Sender: TObject);
+    procedure ComboBox1Change(Sender: TObject);
     procedure Edit1EditingDone(Sender: TObject);
     procedure Edit1Exit(Sender: TObject);
     procedure FileMenuNewClick(Sender: TObject);
@@ -82,6 +95,8 @@ type
     procedure MIInvertClick(Sender: TObject);
     procedure MIRenameClick(Sender: TObject);
     procedure MISettingsClick(Sender: TObject);
+    procedure MITEditSubPNClick(Sender: TObject);
+    procedure MITTransitionCClick(Sender: TObject);
     procedure MyCanvasClick(Sender: TObject);
     procedure MyCanvasDblClick(Sender: TObject);
     procedure MyCanvasMouseDown(Sender: TObject; Button: TMouseButton;
@@ -94,11 +109,17 @@ type
     procedure SpinEdit1Change(Sender: TObject);
     procedure SpinEdit1Exit(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
+    procedure ToolLineClick(Sender: TObject);
+    procedure ToolOvalClick(Sender: TObject);
+    procedure ToolPointerClick(Sender: TObject);
+    procedure ToolRectClick(Sender: TObject);
   private
     { private declarations }
     function MouseSelectedElement (pX, pY: integer) : boolean;
     procedure InterpolateBezier (id1, id2 : integer;
            var atp: TArray4);//array[1..4] of TPoint);
+
+    // Arquivos XML
     procedure CarregueXML (s: string);
     procedure GereXML (s: string);
     procedure ExtraiaDadosPlaceXML
@@ -107,7 +128,14 @@ type
        (no: TDOMNode; var sid, sname: string; var x, y: integer);
     procedure ExtraiaDadosArcXML
        (no: TDOMNode; var sid, sname: string; var id1, id2, uidth: integer);
+
+    // Arquivos KSV
+    procedure SaveKSV (filename: string);
+    procedure LoadKSV (filename: string);
+
+
     procedure RemoverElemento;
+    procedure RemoverVazios;
     procedure PrepareToPlayPetriNet;
     procedure ArmTransitions;
     function PlayPetriNet : integer;
@@ -119,6 +147,8 @@ type
     procedure TransposeMatrix;
     function GatherSelectedObjects:boolean;
     procedure MovaOsCabra;
+
+    procedure AtualizeComBoBox;
 
 
 
@@ -155,6 +185,9 @@ const
   KSelectingRectangle = 10;
   KSelectedObjects = 11;
 
+  KPlaceC      = 12;
+  KTransitionC = 13;
+
   KSHovering = 0;
   KSStartRectangle = 101;
   KSDefiningRectangle = 102;
@@ -162,6 +195,8 @@ const
   KSHoveringWithRectangle = 104;
   KSStartDraggingSeveral = 105;
   KSDraggingSeveral = 106;
+  KSAddObject = 107;
+  KSPlaying = 108;
 
 
   KLengthName = 15;
@@ -171,29 +206,41 @@ const
 
 
 type TElement = record
+   selected: boolean;
    x, y, seqnumber: integer;
    s: String[KLengthName];
-   selected: boolean;
-   case tipo : integer of
-   KPlace: (count : integer);
-   KTransition: (source: array[1..KNumBranches] of integer;
-                 target: array[1..KNumBranches] of integer);
-   KArc:    (id1, id2, uidth, atipo: integer;)
 
+   case tipo : integer of
+   KPlace: (count,ptipo,idx_subpn_p : integer);
+   KTransition: (ttipo,idx_subpn_t : integer);
+   KArc:    (id1, id2, uidth, atipo: integer;);
+end;
+
+
+type TPetriNet = record
+   s: string[KLengthName];
+   Gi : integer;
+   El : array of TElement;
+   PlaceCount
+   ,TransCount
+   ,_Count
+   : integer;
 end;
 
 
 var
-    Gi  // current element being created
-   ,Gs  // current element selected
+   PN : array of TPetriNet;
+   _  : integer;
+
+    Gs  // current element selected
    ,Gs1, Gs2 // while creating an arrow
    ,Gsize , Gmidsize   // current size to draw element
    ,GsizeToken
    ,GAnimInterval
    ,GMagnetGrid
    ,Gstate
-   ,Gplacecount
-   ,Gtransitioncount
+  // ,Gplacecount
+  // ,Gtransitioncount
    : integer;
 
    GElements       : array[1..KNumElements] of TElement;
@@ -214,6 +261,8 @@ implementation
 
 {$I xml.pas}
 
+{$I ksv.pas}
+
 {$I playpetri2.pas}
 
 {$I render.pas}
@@ -222,28 +271,191 @@ implementation
 
 {$I properties4.pas}
 
+//=======================================================
+
+procedure TForm1.AtualizeComBoBox;
+var
+   i : integer;
+begin
+  ComboBox1.Clear;
+
+  For i := 0 to length (PN) - 1 do
+     ComboBox1.Items.Add (PN[i].s);
+
+  ComboBox1.ItemIndex := _;
+
+  ComboBox1.Enabled := (1 < length (PN));
+end;
 
 procedure TForm1.RemoverElemento;
-var i: integer;
+var i, thing: integer;
+
+   procedure RemoverSubPN (idx : integer);
+   var
+      j,k,n,inet,it : integer;
+   begin
+
+     // recursively remove sub-nets
+     for k :=0 to PN[idx].Gi do
+        if (KTransition = PN[idx].El[k].tipo)
+           and
+           (KTransitionC = PN[idx].El[k].ttipo)
+        then RemoverSubPN (PN[idx].El[k].idx_subpn_t);
+
+     // now, remove this sub-net.
+     // first, get it length
+     n := length (PN) - 1;
+
+     // copy last sub-net to current (=idx) position
+     if (idx < n) then begin
+
+       //SetLength (PN[idx].El, length(PN[n].El));
+       //PN[idx].El := PN[n].El;
+       PN[idx] := PN[n];
+
+       // After copying, adjust links between sub-net and super-net.
+
+       // Follow backward link, which did not change.
+       inet := PN[idx].El[0].idx_subpn_t ; // net
+       it   := PN[idx].El[1].idx_subpn_t ; // element
+
+       // Now adjust forward link, because it changed.
+       PN[inet].El[it].idx_subpn_t := idx;
+
+     end; // if
+
+     // we must delete last sub-net.
+
+     // remove elements
+     SetLength (PN[n].El, 0);
+
+     // remove net
+     SetLength (PN, n);
+
+   end; // procedure
+
 begin
 
-   GElements[Gs].tipo := KNothing;
+   // If this is a sub-net, the two first
+   //   elements cannot be deleted.
+   // They are transitions linked to the super-net.
+   if (_ > 0) and (Gs < 2) then begin
+     MessageDlg('Attention',
+                'This Transition cannot be Deleted.'
+                + LineEnding
+                + 'It links this net to its higher-level net.'
+                ,  mtInformation,
+                [mbOk],0);
 
-   // if arc, simply get rid of it and exit
-   if (GElements[Gs]. tipo = KArc) then
       Exit;
+   end;
+
+   // Remember who is being deleted
+   thing := PN[_].El[Gs].tipo;
+
+   if (thing = KTransition) and
+      (PN[_].El[Gs].ttipo = KTransitionC) then
+      RemoverSubPN (PN[_].El[Gs].idx_subpn_t);
+
+   // Delete.
+   PN[_].El[Gs].tipo := KNothing;
 
    // It wasn't an arc: we have to handle arcs
-   //  pointing to the thing tha has been removed.
-   for i:=1 to Gi do begin
+   //  pointing to the thing that has been removed.
+   if (thing <> KArc) then
+   for i:=1 to PN[_].Gi do begin
 
-      if ((i = Gs) or (GElements[i].tipo <> KArc)) then Continue;
+      if ((i = Gs) or (PN[_].El[i].tipo <> KArc)) then Continue;
 
-      if ((GElements[i].id1 = Gs) or
-          (GElements[i].id2 = Gs)) then
-          GElements[i].tipo := KNothing;
+      // Delete arcs pointing to deleted element.
+      if ((PN[_].El[i].id1 = Gs) or
+          (PN[_].El[i].id2 = Gs)) then
+          PN[_].El[i].tipo := KNothing;
    end;
+
+   // If last positions of PetriNet had arcs that were removed,
+   //   then shrink the PetriNet.
+   while (PN[_].Gi > 0) and (PN[_].El[PN[_].Gi].tipo = KNothing) do
+      dec (PN[_].Gi);
+
+
+   // Compact Empty Spaces
+   RemoverVazios;
+
+   AtualizeComBoBox;
+
 end;
+
+procedure TForm1.RemoverVazios;
+
+var oldref, newref: integer;
+
+   procedure AjustarReferencias ;
+   var k: integer;
+   begin
+      // Scan the PetriNet searching for arcs
+      //  that we're affected by the movement
+      //  of an element.
+      for k := 1 to PN[_].Gi do
+
+         // We're interested on arcs only.
+         if (PN[_].El[k].tipo = KArc) then begin
+
+            // arc points to old position, here's the new one
+            if PN[_].El[k].id1 = oldref then
+               PN[_].El[k].id1 := newref;
+
+            // arc points to old position, here's the new one
+            if PN[_].El[k].id2 = oldref then
+               PN[_].El[k].id2 := newref;
+         end // if
+   end; // procedure
+begin
+
+   // Begin at the beginning;
+   newref := 0;
+
+   // Let's search for every empty space
+   while (newref < PN[_].Gi) do begin
+
+     // find empty space
+     repeat
+        inc(newref)
+     until (newref = PN[_].Gi) or (PN[_].El[newref].tipo = KNothing);
+
+     // if this happens, we're done.
+     if (newref = PN[_].Gi) then
+        Exit;
+
+     // we will shrink the PetriNet.
+     oldref := PN[_].Gi;
+(*
+     // So: find first element AFTER the empty space
+     newref := oldref + 1;
+     while (newref < PN[_].Gi) and (PN[_].El[newref].tipo = KNothing) do
+        inc(newref);
+ *)
+     // replace empty space with element.
+     PN[_].El[newref] := PN[_].El[oldref];
+
+     // if we moved a place or transition,
+     //  then adjust any references to it.
+     if (PN[_].El[oldref].tipo <> KArc) then
+        AjustarReferencias;
+
+     // PetriNet shrunk.
+     dec (PN[_].Gi);
+
+   end;
+
+   // Release memory.
+   // Always remember, Gi points to last element
+   //   and the array index begins with 0 (zero),
+   //   so an empty PN has Gi = -1.
+   SetLength (PN[_].El, 1+ PN[_].Gi);
+
+end;
+
 function TForm1.GatherSelectedObjects: boolean;
 var x1,y1,x2,y2,i,k: integer;
 begin
@@ -264,16 +476,16 @@ begin
    k := 0;
 
    // test each element
-   for i := 0 to Gi do
-      if    (GElements[i].x >= x1)
-        and (GElements[i].x <= x2)
-        and (GElements[i].y >= y1)
-        and (GElements[i].y <= y2)
+   for i := 0 to PN[_].Gi do
+      if    (PN[_].El[i].x >= x1)
+        and (PN[_].El[i].x <= x2)
+        and (PN[_].El[i].y >= y1)
+        and (PN[_].El[i].y <= y2)
       then begin
          inc (k);
          // SetLength (GSelectedElements, k);
          // GSelectedElements[k] := i;
-          GElements[i].selected := true;
+          PN[_].El[i].selected := true;
       end;
 
    GatherSelectedObjects := (k > 0);
@@ -298,10 +510,10 @@ begin
    GNewX  := GNewX  + dx;
    GNewY  := GNewY  + dy;
 
-   for i := 1 to Gi do
-      if GElements[i].selected then begin
-         GElements[i].x := GElements[i].x + dx;
-         GElements[i].y := GElements[i].y + dy;
+   for i := 1 to PN[_].Gi do
+      if PN[_].El[i].selected then begin
+         PN[_].El[i].x := PN[_].El[i].x + dx;
+         PN[_].El[i].y := PN[_].El[i].y + dy;
       end
 end;
 
@@ -317,8 +529,8 @@ var
 begin
       Gs := -1;
 
-     for i:=1 to Gi do begin
-        with GElements[i] do begin
+     for i:=0 to PN[_].Gi do begin
+        with PN[_].El[i] do begin
             if (pX - x) > Gmidsize then Continue;
             if (pY - y) > Gmidsize then Continue;
             if (x - pX) > Gmidsize then Continue;
@@ -417,11 +629,13 @@ begin
 
   Timer1.Enabled := true;
 
+  GState := KSPlaying;
 end;
 
 procedure TForm1.btnPauseClick(Sender: TObject);
 begin
   Timer1.Enabled := False;
+  GState := KSHovering;
 end;
 
 procedure TForm1.btnPasteClick(Sender: TObject);
@@ -507,31 +721,81 @@ begin
   end;
 end;
 
+procedure TForm1.Button1Click(Sender: TObject);
+
+var k: integer;
+
+begin
+  // debug code
+
+     writeln (' ');
+     writeln (' ');
+
+     for k := 1 to PN[_].Gi do begin
+       write (k);
+       write (' , ');
+
+       if (PN[_].El[k].tipo <> KArc) then
+          write (PN[_].El[k].s)
+       else begin
+          write (' arc ,');
+          write (PN[_].El[k].id1);
+          write (' ,');
+          write (PN[_].El[k].id2);
+       end;
+
+       writeln (' ');
+
+     end;
+end;
+
+procedure TForm1.ComboBox1Change(Sender: TObject);
+begin
+  _ := ComboBox1.ItemIndex;
+
+  Invalidate;
+  RenderPetriNet (Sender);
+end;
+
 
 
 procedure TForm1.Edit1EditingDone(Sender: TObject);
 begin
-
-  Gstate := 0;
-  //Gss
-  GElements[Gs].s := Edit1.Text;
-
-  Gs := 0;
-  //Gss := 0;
-
-  Invalidate;
-  RenderPetriNet (Sender);
-
+  ;
 end;
 
 procedure TForm1.Edit1Exit(Sender: TObject);
+var
+    i : integer;
 begin
-  Edit1.Text := '';
+
+    Gstate := 0;
+
+    PN[_].El[Gs].s := Edit1.Text;
+
+
+    if (PN[_].El[Gs].tipo = KTransition) and
+       (PN[_].El[Gs].ttipo = KTransitionC) then begin
+
+       PN[PN[_].El[Gs].idx_subpn_t].s := Edit1.Text;
+
+       AtualizeComBoBox;
+    end;
+
+
+    Edit1.Text := '';
+    Edit1.Enabled := false;
+
+    Gs := -1;
+
+    Invalidate;
+    RenderPetriNet (Sender);
+
 end;
 
 procedure TForm1.FileMenuNewClick(Sender: TObject);
 begin
-  Gi := 0;
+  PN[_].Gi := 0;
 
   Invalidate;
 
@@ -564,7 +828,9 @@ begin
   if (OpenDialog1.Files.Count > 0) then begin
 
     if (FileExists(OpenDialog1.FileName)) then begin
-      CarregueXML (OpenDialog1.FileName);
+
+      LoadKSV     (OpenDialog1.FileName);
+      //CarregueXML (OpenDialog1.FileName);
 
       Invalidate;
       RenderPetriNet(Sender);
@@ -575,6 +841,9 @@ begin
     end;
 
   end;
+
+  AtualizeComBoBox;
+
 end;
 
 procedure TForm1.MenuFileSaveAsClick(Sender: TObject);
@@ -584,22 +853,28 @@ begin
   if SaveDialog1.Files.Count > 0 then begin
     // if the user enters a file name without a .bmp
     // extension, we will add it
-    if RightStr(SaveDialog1.FileName, 5) <> '.pnml' then
-      SaveDialog1.FileName:=SaveDialog1.FileName+'.pnml';
+    if RightStr(SaveDialog1.FileName, 5) <> '.ksv' then
+      SaveDialog1.FileName:=SaveDialog1.FileName+'.ksv';
 
-    GereXML(SaveDialog1.FileName);
+    SaveKSV(SaveDialog1.FileName);
+    GereXML(SaveDialog1.FileName+'.pnml');
   end;
 end;
 
 procedure TForm1.MenuFileSaveClick(Sender: TObject);
 begin
+
+  if SaveDialog1.Files.Count < 1 then
+     SaveDialog1.Execute;
+
   if SaveDialog1.Files.Count > 0 then begin
     // if the user enters a file name without a .bmp
     // extension, we will add it
-    if RightStr(SaveDialog1.FileName, 5) <> '.pnml' then
-      SaveDialog1.FileName:=SaveDialog1.FileName+'.pnml';
+    if RightStr(SaveDialog1.FileName, 5) <> '.ksv' then
+      SaveDialog1.FileName:=SaveDialog1.FileName+'.ksv';
 
-    GereXML(SaveDialog1.FileName);
+    SaveKSV (SaveDialog1.FileName);
+    GereXML(SaveDialog1.FileName+'.pnml');
   end;
 end;
 
@@ -644,23 +919,37 @@ end;
 
 procedure TForm1.MICountClick(Sender: TObject);
 begin
-  //Gss := Gs;
 
   Gstate := KEditName;
 
-  if (GElements[Gs].tipo = KPlace) then
-     SpinEdit1.Value := GElements[Gs].count
+  SpinEdit1.Enabled := true;
+
+  if (PN[_].El[Gs].tipo = KPlace) then
+     SpinEdit1.Value := PN[_].El[Gs].count
   else
-     SpinEdit1.Value := GElements[Gs].uidth;
+     SpinEdit1.Value := PN[_].El[Gs].uidth;
 
   SpinEdit1.SetFocus;
 end;
 
 procedure TForm1.MIDeleteClick(Sender: TObject);
 begin
+
+  if (KTransitionC = PN[_].El[Gs].ttipo) then
+  if mrNo = MessageDlg('Attention',
+                       'This action is Irreversible!'
+                       +LineEnding
+                       +'Delete transition <'
+                       +PN[_].El[Gs].s
+                       +'> ?'
+                       , mtConfirmation,
+                       [mbYes, mbNo],0)
+  then exit;
+
+
   Gstate := 0;
 
-  if (Gs > 0) then begin
+  if (Gs > -1) then begin
      RemoverElemento;
      Invalidate;
      RenderPetriNet (Sender);
@@ -671,12 +960,12 @@ end;
 
 procedure TForm1.MIDoubleArcClick(Sender: TObject);
 begin
-  if (Gs < 1) then Exit;
+  if (Gs < 0) then Exit;
 
-  if (GElements[Gs].atipo = KArcDouble) then
-     GElements[Gs].atipo := KArcNormal
+  if (PN[_].El[Gs].atipo = KArcDouble) then
+     PN[_].El[Gs].atipo := KArcNormal
   else
-     GElements[Gs].atipo := KArcDouble;
+     PN[_].El[Gs].atipo := KArcDouble;
 
   Invalidate;
   RenderPetriNet(Sender);
@@ -690,11 +979,11 @@ end;
 procedure TForm1.MIInvertClick(Sender: TObject);
 var aux: integer;
 begin
-   if (Gs < 1) then Exit;
+   if (Gs < 0) then Exit;
 
-   aux := GElements[Gs].id1;
-   GElements[Gs].id1 := GElements[Gs].id2;
-   GElements[Gs].id2 := aux;
+   aux := PN[_].El[Gs].id1;
+   PN[_].El[Gs].id1 := PN[_].El[Gs].id2;
+   PN[_].El[Gs].id2 := aux;
 
    Invalidate;
    RenderPetriNet(Sender);
@@ -702,9 +991,10 @@ end;
 
 procedure TForm1.MIRenameClick(Sender: TObject);
 begin
-  //Gss := Gs;
-  Edit1.Text := GElements[Gs].s;
-  SpinEdit1.Value := GElements[Gs].count;
+
+  Edit1.Enabled := true;
+  Edit1.Text := PN[_].El[Gs].s;
+  SpinEdit1.Value := PN[_].El[Gs].count;
 
   Gstate := KEditName;
 
@@ -718,34 +1008,95 @@ begin
   Form2.Show;
 end;
 
+procedure TForm1.MITEditSubPNClick(Sender: TObject);
+begin
+
+  // "jump" to sub-PN
+  _ := PN[_].El[Gs].idx_subpn_t;
+
+  Invalidate;
+  RenderPetriNet(Sender);
+end;
+
+procedure TForm1.MITTransitionCClick(Sender: TObject);
+var
+  i : integer;
+begin
+  if mrNo = MessageDlg('Attention',
+                       'Are you sure?'
+                       , mtConfirmation,
+                       [mbYes, mbNo],0)
+  then exit;
+
+  // change type of transition.
+  PN[_].El[Gs].ttipo := KTransitionC;
+
+  // increment number of petri nets
+  //inc(PN[0]._Count);
+
+  i := length(PN); //PN[0]._Count;
+
+  // Create New net
+  SetLength(PN, 1+ i);
+
+  // link current transition to new net
+  PN[_].El[Gs].idx_subpn_t := i;
+
+
+  PN[i].Gi := 1;
+  PN[i].s  := PN[_].El[Gs].s;
+
+  // New PN, create 2 transitions
+  SetLength(PN[i].El, 2);
+
+  PN[i].El[0].tipo  := KTransition;
+  PN[i].El[0].ttipo := KTransition;
+  PN[i].El[0].s     := 'Input';
+  PN[i].El[0].x     := 50;
+  PN[i].El[0].y     := 50;
+  PN[i].El[0].idx_subpn_t := _; // link back (net id)
+
+  PN[i].El[1].tipo  := KTransition;
+  PN[i].El[1].ttipo := KTransition;
+  PN[i].El[1].s     := 'Output';
+  PN[i].El[1].x     := 150;
+  PN[i].El[1].y     := 50;
+  PN[i].El[1].idx_subpn_t := Gs; // link back (el id)
+
+  AtualizeComBoBox;
+
+end;
+
 
 
 procedure TForm1.MyCanvasClick(Sender: TObject);
 begin
 
+  // if playing petri net, always exit.
+  if (Gstate = KSPlaying) then Exit;
+
   if (Gstate = KEditName) then begin
     Edit1.Text := '';
-    Gs := 0;
-    //Gss := 0;
+
+    Gs := -1;
 
     Gstate := 0;
     Exit;
 
   end;
 
-  if ((not ToolPointer.Down) and (not ToolErase.Down)) then Exit;
+  if (not ToolPointer.Down) then Exit;
 
-  //Gss := 0;
-
-  if (Gs < 1) then
+  if (Gs < 0) then
      Exit;
 
+(* old code
   if (ToolErase.Down) then begin
      RemoverElemento;
      Invalidate;
      RenderPetriNet(Sender);
   end;
-
+*)
 
 end;
 
@@ -755,8 +1106,8 @@ begin
   Exit;
 (*
   Gss := Gs;
-  Edit1.Text := GElements[Gs].s;
-  SpinEdit1.Value := GElements[Gs].count;
+  Edit1.Text := PN[_].El[Gs].s;
+  SpinEdit1.Value := PN[_].El[Gs].count;
 
   Gstate := KEditName;
 
@@ -770,32 +1121,40 @@ var
    i : integer;
 begin
 
+  // if playing petri net, ignore mouse.
+  if (Gstate = KSPlaying) then exit;
+
   MouseIsDown := True;
 
-  // process menu options
+  // process menu from Right-Click
   if Button = mbRight then begin
 
-     if (Gs < 1) then Exit;
+     if (Gs < 0) then Exit;
 
-     MICount.Visible  := (GElements[Gs].tipo = KPlace)
-                         or
-                         (GElements[Gs].tipo = KArc);
+     // menu = place
+     if (PN[_].El[Gs].tipo = KPlace) then begin
+        PopupMenuPlace.PopUp(Form1.Left + CanvasScroller.Left + pX,
+                         Form1.Top + CanvasScroller.Top + pY + 50);
+        exit
+     end else
+     // menu = arc
+     if (PN[_].El[Gs].tipo = KArc) then begin
 
-     if (GElements[Gs].tipo = KArc) then begin
-        MIInvert.Visible    := true; //(GElements[Gs].tipo = KArc);
-        MIDoubleArc.Visible := true; //(GElements[Gs].tipo = KArc);
+        MiDoubleArc.Checked := PN[_].El[Gs].atipo = (KArcDouble);
 
-        MiDoubleArc.Checked := GElements[Gs].atipo = (KArcDouble);
+        PopupMenuArc.PopUp(Form1.Left + CanvasScroller.Left + pX,
+                           Form1.Top + CanvasScroller.Top + pY + 50);
+        Exit;
+     // menu = transition
      end else begin
-        MIInvert.Visible    := false;
-        MIDoubleArc.Visible := false;
-        MIRename.Visible    := true; //(GElements[Gs].tipo <> KArc);
-     end;
 
-     PopupMenu1.PopUp(Form1.Left + CanvasScroller.Left + pX,
-                      Form1.Top + CanvasScroller.Left + pY + 50);
-    // Gstate := KPopupMenu;
-     Exit;
+     //MITTransitionC.Enabled := (PN[_].El[Gs].ttipo = KTransition);
+       MITEditSubPn.Enabled := PN[_].El[Gs].ttipo = KTransitionC;
+
+       PopupMenuTransition.PopUp(Form1.Left + CanvasScroller.Left + pX,
+                                 Form1.Top + CanvasScroller.Top + pY + 50);
+       Exit;
+     end;
   end;
 
   // still menu...
@@ -812,8 +1171,8 @@ begin
       GNewX  := -1;
 
       // mark all objects as non-selected.
-       for i:=1 to Gi do
-          GElements[i].selected := false;
+       for i:=1 to PN[_].Gi do
+          PN[_].El[i].selected := false;
 
       Exit;
   end;
@@ -836,8 +1195,8 @@ begin
         GState := KSHovering;
 
         // mark all objects as non-selected.
-        for i:=1 to Gi do
-          GElements[i].selected := false;
+        for i:=1 to PN[_].Gi do
+          PN[_].El[i].selected := false;
 
         // undo rectangle
         GPrevX := -1;
@@ -859,38 +1218,54 @@ begin
 
   // drawing a transition
   if ToolRect.Down = true then begin
-    inc(Gi);
-    inc(Gtransitioncount);
-    with GElements[Gi] do begin
+
+    // one more element
+    inc(PN[_].Gi);
+    SetLength (PN[_].El, 1+ PN[_].Gi);
+
+    inc(PN[0].TransCount);
+    with PN[_].El[PN[_].Gi] do begin
         x := pX;
         y := pY;
-        tipo := KTransition;
-        s := 'T' + IntToStr (Gtransitioncount);
-        source[1] := -1;
-        target[1] := -1;
+        tipo  := KTransition;
+        ttipo := KTransition;
+
+        s := 'T' + IntToStr (PN[0].TransCount);
+        //source[1] := -1;
+        //target[1] := -1;
     end;
 
   // drawing a place
   end else if ToolOval.Down then begin
-    inc(Gi);
-    inc(Gplacecount);
-    with GElements[Gi] do begin
+
+    // one more element
+    inc(PN[_].Gi);
+    SetLength (PN[_].El, 1+ PN[_].Gi);
+
+    // one more place
+    inc(PN[0].PlaceCount);
+
+    with PN[_].El[PN[_].Gi] do begin
         x := pX;
         y := pY;
-        tipo := KPlace;
-        s := 'P' + IntToStr (Gplacecount);
+        tipo  := KPlace;
+        ptipo := KPlace;
+        s := 'P' + IntToStr (PN[0].PlaceCount);
     end;
 
   // drawing an arc
-  end else if (ToolLine.Down and (Gs > 0)) then begin
+  end else if (ToolLine.Down and (Gs > -1)) then begin
 
-    inc(Gi);
-    GElements[Gi].x := GElements[Gs].x;
-    GElements[Gi].y := GElements[Gs].y;
-    GElements[Gi].tipo := KArc;
-    GElements[Gi].id1 := Gs;
-    GElements[Gi].id2 := -1;
-    GElements[Gi].uidth := 1;
+    // one more element
+    inc(PN[_].Gi);
+    SetLength (PN[_].El, 1+ PN[_].Gi);
+
+    PN[_].El[PN[_].Gi].x := PN[_].El[Gs].x;
+    PN[_].El[PN[_].Gi].y := PN[_].El[Gs].y;
+    PN[_].El[PN[_].Gi].tipo := KArc;
+    PN[_].El[PN[_].Gi].id1 := Gs;
+    PN[_].El[PN[_].Gi].id2 := -1;
+    PN[_].El[PN[_].Gi].uidth := 1;
 
     Gs1 := Gs;
 
@@ -953,7 +1328,7 @@ begin
 
   // user is just wandering around.
   // highlight object under the mouse cursor.
-  if (GState = KSHovering) then begin
+  if (GState = KSHovering) or (GState = KSAddObject) then begin
     MouseSelectedElement (pX, pY);
 
     goto saidaMouseMove;
@@ -963,18 +1338,18 @@ begin
     //  move it!
     // object follows mouse.
   if (GState = KSDraggingObject) then begin
-     GElements[Gs].x := pX;
-     GElements[Gs].y := pY;
+     PN[_].El[Gs].x := pX;
+     PN[_].El[Gs].y := pY;
 
      goto saidaMouseMove;
   end;
 
   // placing a new element
-  if (MouseIsDown and (Gi > 0) and
+  if (MouseIsDown and (PN[_].Gi > 0) and
       (ToolRect.Down or ToolOval.Down)) then begin
 
-     GElements[Gi].x := pX; //(pX div GMagnetGrid) * GMagnetGrid;
-     GElements[Gi].y := pY;
+     PN[_].El[PN[_].Gi].x := pX; //(pX div GMagnetGrid) * GMagnetGrid;
+     PN[_].El[PN[_].Gi].y := pY;
 
      Invalidate;
      RenderPetriNet(Sender);
@@ -982,7 +1357,7 @@ begin
   end;
 
   // only get coordinates.
-  if ((ToolLine.Down) or (ToolErase.Down)) then begin
+  if (ToolLine.Down)  then begin
 
      // we need these coordinates,
      //   to register the end point of a line being drawn.
@@ -1024,39 +1399,39 @@ begin
 
      // não criar linha para si mesmo,
      //   ou para lugar vazio
-     if ((Gs = Gs1) or (Gs < 1)) then begin
-        dec (Gi);
+     if ((Gs = Gs1) or (Gs < 0)) then begin
+        dec (PN[_].Gi);
         Exit;
      end;
 
      // também não crie linha entre objetos de mesmo tipo.
-     if (GElements[GElements[Gi].id1].tipo = GElements[Gs].tipo) then begin
-        dec (Gi);
+     if (PN[_].El[PN[_].El[PN[_].Gi].id1].tipo = PN[_].El[Gs].tipo) then begin
+        dec (PN[_].Gi);
         Exit;
      end;
 
      // marque na linha objeto final
-     GElements[Gi].id2 := Gs;
+     PN[_].El[PN[_].Gi].id2 := Gs;
 
      // marque na linha coordenadas do centro dela
-     GElements[Gi].x :=
-       (GElements[GElements[Gi].id1].x +
-        GElements[GElements[Gi].id2].x) div 2;
-     GElements[Gi].y :=
-       (GElements[GElements[Gi].id1].y +
-        GElements[GElements[Gi].id2].y) div 2;
+     PN[_].El[PN[_].Gi].x :=
+       (PN[_].El[PN[_].El[PN[_].Gi].id1].x +
+        PN[_].El[PN[_].El[PN[_].Gi].id2].x) div 2;
+     PN[_].El[PN[_].Gi].y :=
+       (PN[_].El[PN[_].El[PN[_].Gi].id1].y +
+        PN[_].El[PN[_].El[PN[_].Gi].id2].y) div 2;
 
 
      // interface volta ao estado zero
-     Gstate := 0;
-     Gs := 0;
+     Gstate := KSAddObject;
+     Gs := -1;
 
   end; //KCriandoLinha
 
   // User stopped moving a single object.
   if  (GState = KSDraggingObject) then begin
-    GElements[Gs].x := (pX div GMagnetGrid) * GMagnetGrid;
-    GElements[Gs].y := (pY div GMagnetGrid) * GMagnetGrid;
+    PN[_].El[Gs].x := (pX div GMagnetGrid) * GMagnetGrid;
+    PN[_].El[Gs].y := (pY div GMagnetGrid) * GMagnetGrid;
 
     GState := KSHovering;
     goto saidaMouseUp;
@@ -1100,10 +1475,10 @@ begin
      GState := KSHoveringWithRectangle;
 
      // adjust with magnetic grid
-     for i := 1 to Gi do
-        if (GElements[i].selected) then begin
-          GElements[i].x := (GElements[i].x div GMagnetGrid) * GMagnetGrid;
-          GElements[i].y := (GElements[i].y div GMagnetGrid) * GMagnetGrid;
+     for i := 1 to PN[_].Gi do
+        if (PN[_].El[i].selected) then begin
+          PN[_].El[i].x := (PN[_].El[i].x div GMagnetGrid) * GMagnetGrid;
+          PN[_].El[i].y := (PN[_].El[i].y div GMagnetGrid) * GMagnetGrid;
         end;
 
      GPrevX := (GPrevX div GMagnetGrid) * GMagnetGrid;
@@ -1153,14 +1528,14 @@ procedure TForm1.SpinEdit1Change(Sender: TObject);
 
 begin
 
-  if (Gs < 1) then Exit;
+  if (Gs < 0) then Exit;
 
-  if (GElements[Gs].tipo = KPlace) then
-     GElements[Gs].count := SpinEdit1.Value
+  if (PN[_].El[Gs].tipo = KPlace) then
+     PN[_].El[Gs].count := SpinEdit1.Value
 
   else // arcs are always non-zero
      if (SpinEdit1.Value > 0) then
-        GElements[Gs].uidth := SpinEdit1.Value;
+        PN[_].El[Gs].uidth := SpinEdit1.Value;
 
   Invalidate;
   RenderPetriNet (sender);
@@ -1169,11 +1544,14 @@ end;
 
 procedure TForm1.SpinEdit1Exit(Sender: TObject);
 begin
-  Gs := 0;
-  //Gss := 0;
+
+  Gs     := -1;
+
   Gstate := 0;
 
   SpinEdit1.Value := 0;
+
+  SpinEdit1.Enabled := false;
 end;
 
 procedure TForm1.Timer1Timer(Sender: TObject);
@@ -1184,17 +1562,51 @@ begin
     RenderPetriNet(Sender);
 end;
 
+procedure TForm1.ToolLineClick(Sender: TObject);
+begin
+  GState := KSAddObject;
+end;
+
+procedure TForm1.ToolOvalClick(Sender: TObject);
+begin
+  GState := KSAddObject;
+end;
+
+procedure TForm1.ToolPointerClick(Sender: TObject);
+begin
+  GState := KSHovering;
+end;
+
+procedure TForm1.ToolRectClick(Sender: TObject);
+begin
+  Gstate := KSAddObject
+end;
+
 
 
 
 
 begin
-   Gi := 0;
+   _ := 0;
+
+   SetLength (PN, 1);
+
+   // field Gi points to the last elements of a petrinet,
+   //   so (-1) means the net is empty.
+   PN[_].s          := 'Root';
+   PN[_].Gi         := -1;
+   PN[_].PlaceCount := -1;
+   PN[_].TransCount := -1;
+//   PN[_]._Count     := 0;
+
+
+   // no element selected yet
    Gs := -1;
+
   // Gss := 0;
    Gsize := 20;
-   Gplacecount := 0;
-   Gtransitioncount := 0;
+   //Gplacecount := 0;
+   //Gtransitioncount := 0;
    Gmidsize := Gsize div 2;
    GsizeToken := Gsize div 4;
 

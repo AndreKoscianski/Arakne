@@ -111,7 +111,7 @@ begin
 
         saux := no.Attributes.Item[i].NodeValue;
 
-        for k:=1 to Gi do begin
+        for k:=1 to PN[_].Gi do begin
            if (Gstr[k] = saux) then begin
               id1 := k;
               Break
@@ -122,7 +122,7 @@ begin
 
         saux := no.Attributes.Item[i].NodeValue;
 
-        for k:=1 to Gi do begin
+        for k:=1 to PN[_].Gi do begin
            if (Gstr[k] = saux) then begin
               id2 := k;
               Break
@@ -162,7 +162,7 @@ var
   sid, sname : string;
 begin
 
-    Gi := 0;
+    PN[_].Gi := 0;
 
     try
       ReadXMLFile(Doc, s);
@@ -172,7 +172,7 @@ begin
       // ===Places===
       Members := Doc.GetElementsByTagName('place');
 
-      Gplacecount := Members.Count;
+      PN[_].PlaceCount := Members.Count;
 
       for i:= 0 to Members.Count - 1 do begin
 
@@ -180,19 +180,19 @@ begin
 
          ExtraiaDadosPlaceXML (Members[i], sid, sname, x, y, count);
 
-         inc (Gi);
-         Gstr[Gi] := sid;
-         GElements[Gi].x := x;
-         GElements[Gi].y := y;
-         GElements[Gi].tipo := KPlace;
-         GElements[Gi].s := sname;
-         GElements[Gi].count := count;
+         inc (PN[_].Gi);
+         Gstr[PN[_].Gi] := sid;
+         GElements[PN[_].Gi].x := x;
+         GElements[PN[_].Gi].y := y;
+         GElements[PN[_].Gi].tipo := KPlace;
+         GElements[PN[_].Gi].s := sname;
+         GElements[PN[_].Gi].count := count;
       end;
 
       // ===Transitions===
       Members := Doc.GetElementsByTagName('transition');
 
-      Gtransitioncount := Members.Count;
+      PN[_].TransCount := Members.Count;
 
       for i:= 0 to Members.Count - 1 do begin
 
@@ -200,12 +200,12 @@ begin
 
          ExtraiaDadosTransitionXML (Members[i], sid, sname, x, y);
 
-         inc (Gi);
-         Gstr[Gi] := sid;
-         GElements[Gi].x := x;
-         GElements[Gi].y := y;
-         GElements[Gi].tipo := KTransition;
-         GElements[Gi].s := sname;
+         inc (PN[_].Gi);
+         Gstr[PN[_].Gi] := sid;
+         GElements[PN[_].Gi].x := x;
+         GElements[PN[_].Gi].y := y;
+         GElements[PN[_].Gi].tipo := KTransition;
+         GElements[PN[_].Gi].s := sname;
       end;
 
        // ===Arcs===
@@ -220,31 +220,34 @@ begin
          // avoid invalid coordinates, with a radical solution...
          if ((x < 1) or (y < 1)) then Halt;
 
-         inc (Gi);
-         Gstr[Gi] := sid;
-         GElements[Gi].id1 := x;
-         GElements[Gi].id2 := y;
-         GElements[Gi].tipo := KArc;
+         inc (PN[_].Gi);
+         Gstr[PN[_].Gi] := sid;
+         GElements[PN[_].Gi].id1 := x;
+         GElements[PN[_].Gi].id2 := y;
+         GElements[PN[_].Gi].tipo := KArc;
 
          if (uidth > 0) then
-            GElements[Gi].uidth := uidth
+            GElements[PN[_].Gi].uidth := uidth
          else
-            GElements[Gi].uidth := 1;
+            GElements[PN[_].Gi].uidth := 1;
 
 
          // marque na linha coordenadas do centro dela
-         GElements[Gi].x :=
-           (GElements[GElements[Gi].id1].x +
-            GElements[GElements[Gi].id2].x) div 2;
-         GElements[Gi].y :=
-           (GElements[GElements[Gi].id1].y +
-            GElements[GElements[Gi].id2].y) div 2;
+         GElements[PN[_].Gi].x :=
+           (GElements[GElements[PN[_].Gi].id1].x +
+            GElements[GElements[PN[_].Gi].id2].x) div 2;
+         GElements[PN[_].Gi].y :=
+           (GElements[GElements[PN[_].Gi].id1].y +
+            GElements[GElements[PN[_].Gi].id2].y) div 2;
       end;
 
     finally
       Doc.Free;
     end;
   end;
+
+//===============================================================================
+
 procedure TForm1.GereXML (s: string);
 var
   Doc: TXMLDocument;                                  // variable to document
@@ -282,7 +285,7 @@ begin
     // tudo ficará dentro desta página.
     RootNode := node;
 
-    for i:=1 to Gi do with GElements[i] do begin
+    for i:=1 to PN[_].Gi do with GElements[i] do begin
 
     if tipo = KPlace then begin
     //==Place==

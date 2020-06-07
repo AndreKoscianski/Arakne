@@ -2,6 +2,7 @@
 var
   _id, _matrix : TMatrix;
 
+  _PlaceCount, _TransCount : integer;
 
 
 //----------------------------------------------------------------
@@ -10,7 +11,7 @@ var
    i,j,aux:integer;
 begin
 
-  for i:=0 to GPlaceCount-1 do
+  for i:=0 to _PlaceCount-1 do
      for j:=0 to i-1 do begin
         aux := _matrix[i][j];
         _matrix[i][j] := _matrix[j][i];
@@ -33,44 +34,46 @@ begin
    np := 0;
    nt := 0;
 
-   for i := 1 to Gi do begin
-      if (GElements[i].tipo = KPlace) then begin
-         GElements[i].seqnumber := np;
+   for i := 1 to PN[_].Gi do begin
+      if (PN[_].El[i].tipo = KPlace) then begin
+         PN[_].El[i].seqnumber := np;
          inc (np);
          Continue;
       end;
-      if (GElements[i].tipo = KTransition) then begin
-         GElements[i].seqnumber := nt;
+      if (PN[_].El[i].tipo = KTransition) then begin
+         PN[_].El[i].seqnumber := nt;
          inc (nt);
          Continue;
       end;
    end;
 
+   _PlaceCount := np;
+   _TransCount := nt;
 
    // Scan the network and extract topology
    //   in the form of lists.
    PrepareToPlayPetriNet;
 
    // Set Matrix Dimension.
-   SetLength (_matrix, Gplacecount, Gtransitioncount+Gplacecount);
+   SetLength (_matrix, _PlaceCount, _TransCount+_PlaceCount);
 
    // Clean Matrix.
    // It's a global variable used across calls.
-   for i := 0 to GPlaceCount-1 do begin
-      for j := 0 to GTransitionCount-1 do begin
+   for i := 0 to _PlaceCount-1 do begin
+      for j := 0 to _TransCount-1 do begin
          _matrix[i][j] := 0;
-         _matrix[i][j+GTransitionCount] := 0;
+         _matrix[i][j+_TransCount] := 0;
       end;         
-     _matrix[i][i+GTransitionCount] := 1;
+     _matrix[i][i+_TransCount] := 1;
   end;         
 
 
    //-------------------------------------
 
    // for each transition
-   for i := 0 to GTransitionCount-1 do begin
+   for i := 0 to _TransCount-1 do begin
 
-      it  := GElements[_trInfo[i].id].seqnumber;
+      it  := PN[_].El[_trInfo[i].id].seqnumber;
 
       //----------------------------------------
 
@@ -80,7 +83,7 @@ begin
       while (aux <> nil) do begin
 
          // Get index of the place in the matrix 
-         ip := GElements[aux^.id].seqnumber;
+         ip := PN[_].El[aux^.id].seqnumber;
 
          // If there's a double arc, 
          //    it'll be nullified by the 'output step' below.
@@ -97,7 +100,7 @@ begin
       while (aux <> nil) do begin
 
          // Get index of the place in the matrix 
-         ip := GElements[aux^.id].seqnumber;
+         ip := PN[_].El[aux^.id].seqnumber;
 
          // If there's a double arc, it'll be nullified.
          _matrix[ip][it] := _matrix[ip][it] + (aux^.uidth);
@@ -170,16 +173,16 @@ var
       i2,j2: integer;
    begin
       writeln('----------------------');
-      for i2:= 0 to GPlaceCount-1 do begin
-         for j2:=0 to GTransitionCount-1 do begin
+      for i2:= 0 to _PlaceCount-1 do begin
+         for j2:=0 to _TransCount-1 do begin
             write (_matrix[i2][j2]);
             write (' ');
          end;
 
          write (' | ');
 
-         for j2:=0 to GPlaceCount-1 do begin
-            write (_matrix[i2][j2+GTransitionCount]);
+         for j2:=0 to _PlaceCount-1 do begin
+            write (_matrix[i2][j2+_TransCount]);
             write (' ');
          end;
 
@@ -191,12 +194,12 @@ begin
 
    ComputeMatrix;
 
-   ny := GPlaceCount - 1;
-   nx := GTransitionCount+GPlaceCount - 1;
+   ny := _PlaceCount - 1;
+   nx := _TransCount+_PlaceCount - 1;
 
  //  TransposeMatrix;
 
-   for i:= 0 to GPlaceCount-1 do begin
+   for i:= 0 to _PlaceCount-1 do begin
 
       l := FindRowWithCol1;
 
