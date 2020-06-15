@@ -182,11 +182,11 @@ begin
 
          inc (PN[_].Gi);
          Gstr[PN[_].Gi] := sid;
-         GElements[PN[_].Gi].x := x;
-         GElements[PN[_].Gi].y := y;
-         GElements[PN[_].Gi].tipo := KPlace;
-         GElements[PN[_].Gi].s := sname;
-         GElements[PN[_].Gi].count := count;
+         PN[_].El[PN[_].Gi].x := x;
+         PN[_].El[PN[_].Gi].y := y;
+         PN[_].El[PN[_].Gi].tipo := KPlace;
+         PN[_].El[PN[_].Gi].s := sname;
+         PN[_].El[PN[_].Gi].count := count;
       end;
 
       // ===Transitions===
@@ -202,10 +202,10 @@ begin
 
          inc (PN[_].Gi);
          Gstr[PN[_].Gi] := sid;
-         GElements[PN[_].Gi].x := x;
-         GElements[PN[_].Gi].y := y;
-         GElements[PN[_].Gi].tipo := KTransition;
-         GElements[PN[_].Gi].s := sname;
+         PN[_].El[PN[_].Gi].x := x;
+         PN[_].El[PN[_].Gi].y := y;
+         PN[_].El[PN[_].Gi].tipo := KTransition;
+         PN[_].El[PN[_].Gi].s := sname;
       end;
 
        // ===Arcs===
@@ -222,23 +222,23 @@ begin
 
          inc (PN[_].Gi);
          Gstr[PN[_].Gi] := sid;
-         GElements[PN[_].Gi].id1 := x;
-         GElements[PN[_].Gi].id2 := y;
-         GElements[PN[_].Gi].tipo := KArc;
+         PN[_].El[PN[_].Gi].id1 := x;
+         PN[_].El[PN[_].Gi].id2 := y;
+         PN[_].El[PN[_].Gi].tipo := KArc;
 
          if (uidth > 0) then
-            GElements[PN[_].Gi].uidth := uidth
+            PN[_].El[PN[_].Gi].uidth := uidth
          else
-            GElements[PN[_].Gi].uidth := 1;
+            PN[_].El[PN[_].Gi].uidth := 1;
 
 
          // marque na linha coordenadas do centro dela
-         GElements[PN[_].Gi].x :=
-           (GElements[GElements[PN[_].Gi].id1].x +
-            GElements[GElements[PN[_].Gi].id2].x) div 2;
-         GElements[PN[_].Gi].y :=
-           (GElements[GElements[PN[_].Gi].id1].y +
-            GElements[GElements[PN[_].Gi].id2].y) div 2;
+         PN[_].El[PN[_].Gi].x :=
+           (PN[_].El[PN[_].El[PN[_].Gi].id1].x +
+            PN[_].El[PN[_].El[PN[_].Gi].id2].x) div 2;
+         PN[_].El[PN[_].Gi].y :=
+           (PN[_].El[PN[_].El[PN[_].Gi].id1].y +
+            PN[_].El[PN[_].El[PN[_].Gi].id2].y) div 2;
       end;
 
     finally
@@ -285,7 +285,7 @@ begin
     // tudo ficará dentro desta página.
     RootNode := node;
 
-    for i:=1 to PN[_].Gi do with GElements[i] do begin
+    for i:=1 to PN[_].Gi do with PN[_].El[i] do begin
 
     if tipo = KPlace then begin
     //==Place==

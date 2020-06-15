@@ -35,14 +35,15 @@ var
              else
                 write (tfOut, 'PC,');
 
-             write (tfOut, PN[i].El[k].s, ','
-                         , PN[i].El[k].x, ','
+             write (tfOut, PN[i].El[k].s    , ','
+                         , PN[i].El[k].count, ','
+                         , PN[i].El[k].x    , ','
                          , PN[i].El[k].y);
 
              if (KPlace = PN[i].El[k].ptipo) then
                 writeln (tfOut, '')
              else
-                writeln (tfOut, ',', PN[_].El[k].idx_subpn_p);
+                writeln (tfOut, ',', PN[_].El[k].idx_real_p);
 
            end;
 
@@ -144,42 +145,45 @@ var
        PN[i].El[k].id1   := StrToInt (sl[5]);
        PN[i].El[k].id2   := StrToInt (sl[6]);
 
-    end else begin
+    end else
+    // possibilities left = place or transition.
+    if ('P' = sl[1]) or  ('PC' = sl[1]) then begin
 
-      // possibilities left = place or transition.
-      if 'P' = sl[1] then begin
          PN[i].El[k].tipo  := KPlace;
-         PN[i].El[k].ptipo := KPlace;
-      end
-      else if 'PC' = sl[1] then begin
-         PN[i].El[k].tipo := KPlace;
-         PN[i].El[k].ptipo := KPlaceC;
-      end
-      else if 'T' = sl[1] then begin
+
+         if  ('P' = sl[1]) then
+            PN[i].El[k].ptipo := KPlace
+         else
+            PN[i].El[k].ptipo := KPlaceC;
+
+         PN[i].El[k].s     := sl[2];
+         PN[i].El[k].count := StrToInt (sl[3]);
+         PN[i].El[k].x     := StrToInt (sl[4]);
+         PN[i].El[k].y     := StrToInt (sl[5]);
+
+         if PN[i].El[k].ptipo = KPlaceC then
+            if length (sl) < 7 then goto badexit
+            else PN[i].El[k].idx_real_p := StrToInt (sl[6]);
+    end
+    else if ('T' = sl[1]) or ('TC' = sl[1]) then begin
+
          PN[i].El[k].tipo  := KTransition;
-         PN[i].El[k].ttipo := KTransition;
-      end
-      else if 'TC' = sl[1] then begin
-         PN[i].El[k].tipo  := KTransition;
-         PN[i].El[k].ttipo := KTransitionC;
-      end;
 
-      if length (sl) < 5 then goto badexit;
+         if ('T' = sl[1]) then
+            PN[i].El[k].ttipo := KTransition
+         else
+            PN[i].El[k].ttipo := KTransitionC;
 
-      // name and position
-      PN[i].El[k].s    := sl[2];
-      PN[i].El[k].x    := StrToInt (sl[3]);
-      PN[i].El[k].y    := StrToInt (sl[4]);
+         PN[i].El[k].s     := sl[2];
+         PN[i].El[k].x     := StrToInt (sl[3]);
+         PN[i].El[k].y     := StrToInt (sl[4]);
 
-      if 'PC' = sl[1] then
-         if length (sl) < 6 then goto badexit
-         else PN[i].El[k].idx_subpn_p := StrToInt (sl[5]);
 
-      if 'TC' = sl[1] then
-         if length (sl) < 6 then goto badexit
-         else PN[i].El[k].idx_subpn_t := StrToInt (sl[5]);
+         if PN[i].El[k].ttipo = KTransitionC then
+            if length (sl) < 6 then goto badexit
+            else PN[i].El[k].idx_subpn_t := StrToInt (sl[5]);
 
-     end; //if  place/transition
+      end; //transition
 
      // release memory.
 

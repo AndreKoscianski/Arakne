@@ -40,7 +40,7 @@ var i, ax, ay, aux: integer;
     d, dx, dy: real;
     atp : array[1..4] of TPoint;
     cor : TColor;
-    k : integer;
+    k , ntokens : integer;
 begin
 
   MyCanvas.Canvas.Brush.Color := clWhite;
@@ -149,47 +149,53 @@ begin
             MyCanvas.Canvas.Pen.Width := 1;
 
             // Draw Arrows
+             if (PN[_].El[i].atipo <> KArcInhibit) then begin
 
-            // arrow line1
-            atp[4].x := atp[3].x - trunc(dx * 0.866 + dy * -0.500);
-            atp[4].y := atp[3].y - trunc(dx * 0.500 + dy *  0.866);
+              // arrow line1
+              atp[4].x := atp[3].x - trunc(dx * 0.866 + dy * -0.500);
+              atp[4].y := atp[3].y - trunc(dx * 0.500 + dy *  0.866);
 
-             MyCanvas.Canvas.Line (
-                atp[3].x, atp[3].y,
-                atp[4].x, atp[4].y
-                );
+               MyCanvas.Canvas.Line (
+                  atp[3].x, atp[3].y,
+                  atp[4].x, atp[4].y
+                  );
 
-             // arrow line2
-             atp[4].x := atp[3].x - trunc(dx *  0.866 + dy * 0.500);
-             atp[4].y := atp[3].y - trunc(dx * -0.500 + dy * 0.866);
+               // arrow line2
+               atp[4].x := atp[3].x - trunc(dx *  0.866 + dy * 0.500);
+               atp[4].y := atp[3].y - trunc(dx * -0.500 + dy * 0.866);
 
-             MyCanvas.Canvas.Line (
-                atp[3].x, atp[3].y,
-                atp[4].x, atp[4].y
-                );
+               MyCanvas.Canvas.Line (
+                  atp[3].x, atp[3].y,
+                  atp[4].x, atp[4].y
+                  );
 
-             // another arrow (it's a double arc)
-             if (PN[_].El[i].atipo = KArcDouble) then begin
+               // another arrow (it's a double arc)
+               if (PN[_].El[i].atipo = KArcDouble) then begin
 
-                // arrow line1
-                atp[4].x := atp[1].x + trunc(dx * 0.866 + dy * -0.500);
-                atp[4].y := atp[1].y + trunc(dx * 0.500 + dy *  0.866);
+                  // arrow line1
+                  atp[4].x := atp[1].x + trunc(dx * 0.866 + dy * -0.500);
+                  atp[4].y := atp[1].y + trunc(dx * 0.500 + dy *  0.866);
 
-                 MyCanvas.Canvas.Line (
-                    atp[1].x, atp[1].y,
-                    atp[4].x, atp[4].y
-                    );
+                   MyCanvas.Canvas.Line (
+                      atp[1].x, atp[1].y,
+                      atp[4].x, atp[4].y
+                      );
 
-                 // arrow line2
-                 atp[4].x := atp[1].x + trunc(dx *  0.866 + dy * 0.500);
-                 atp[4].y := atp[1].y + trunc(dx * -0.500 + dy * 0.866);
+                   // arrow line2
+                   atp[4].x := atp[1].x + trunc(dx *  0.866 + dy * 0.500);
+                   atp[4].y := atp[1].y + trunc(dx * -0.500 + dy * 0.866);
 
-                 MyCanvas.Canvas.Line (
-                    atp[1].x, atp[1].y,
-                    atp[4].x, atp[4].y
-                    );
+                   MyCanvas.Canvas.Line (
+                      atp[1].x, atp[1].y,
+                      atp[4].x, atp[4].y
+                      );
 
-             end;   // if double arc
+               end;   // if double arc
+
+             // this is an inhibitor arc
+             end else
+                 MyCanvas.Canvas.Ellipse (atp[3].x - GsizeToken, atp[3].y - GsizeToken,
+                                          atp[3].x + GsizeToken, atp[3].y + GsizeToken);
 
             (* if (atp[1].x < atp[2].x) then atp[2].x := atp[2].x - Gsize;
              if (atp[2].x < atp[1].x) then atp[2].x := atp[2].x + Gsize;
@@ -212,14 +218,14 @@ begin
 
           end  // Arc
 
-          else if (tipo = KPlace) or (tipo = KPlaceC) then begin
+          else if (tipo = KPlace) then begin
 
              cor := MyCanvas.Canvas.Brush.Color;
 
              // if place composed and not selected,
              //   use special color
-             if (tipo = KPlaceC) and (not PN[_].El[i].selected) then
-                MyCanvas.Canvas.Brush.Color := clBlue;
+             if (PN[_].El[i].ptipo = KPlaceC) and (not PN[_].El[i].selected) then
+                MyCanvas.Canvas.Brush.Color := clAqua;
 
              MyCanvas.Canvas.Ellipse (x-Gsize, y-Gsize, x+Gsize, y+Gsize);
 
@@ -227,16 +233,21 @@ begin
              MyCanvas.Canvas.Brush.Color := cor;
 
              // now draw tokens
-             if (count > 0) then begin
+             if (PN[_].El[i].ptipo = KPlace) then
+                ntokens := count
+             else
+                ntokens := PN[_].El[PN[_].El[i].idx_real_p].count;
+
+             if (ntokens > 0) then begin
 
                 cor := MyCanvas.Canvas.Brush.Color;
 
                 MyCanvas.Canvas.Brush.Color := clBlack;
 
-                if (count = 1) or (count = 3) then
+                if (ntokens = 1) or (ntokens = 3) then
                  MyCanvas.Canvas.Ellipse (x-GsizeToken, y-GsizeToken, x+GsizeToken, y+GsizeToken);
 
-                if (count = 2) or (count = 3) then begin
+                if (ntokens = 2) or (ntokens = 3) then begin
                   ax := x - 2*GsizeToken;
                   ay := y + 2*GsizeToken;
                   MyCanvas.Canvas.Ellipse (ax-GsizeToken, ay-GsizeToken, ax+GsizeToken, ay+GsizeToken);
@@ -246,7 +257,7 @@ begin
                   MyCanvas.Canvas.Ellipse (ax-GsizeToken, ay-GsizeToken, ax+GsizeToken, ay+GsizeToken);
                 end;
 
-                if (count > 3) then   begin
+                if (ntokens > 3) then   begin
                    MyCanvas.Canvas.Brush.Color := cor;
                    MyCanvas.Canvas.TextOut(x - GsizeToken, y- GsizeToken, IntToStr(count));
                 end ;

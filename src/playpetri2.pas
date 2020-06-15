@@ -1,7 +1,8 @@
 type
 
   TArcs = record
-    id, uidth : integer;
+    id, uidth  : integer;
+    finhibitor : boolean;
     prox : ^TArcs;
   end;
 
@@ -62,8 +63,8 @@ procedure TForm1.PrepareToPlayPetriNet;
    end;
 
 var
-  i,j,k,nt,idp,idt: integer;
-
+  i,j,k,nt,np,idp,idt: integer;
+  flag_from_place : boolean;
   aux : ^TArcs;
 begin
 
@@ -72,12 +73,19 @@ begin
    // This is the only moment we need to know
    //  how many transitions are there.
    _TransitionCount := 0;
+   _PlaceCount := 0;
    for i := 0 to PN[_].Gi do
       if PN[_].El[i].tipo = KTransition then
-         inc(_TransitionCount);
+         inc(_TransitionCount)
+      else if ((PN[_].El[i].tipo = KPlace) and (PN[_].El[i].ptipo = KPlace)) then
+         inc(_PlaceCount);
 
 
    SetLength (_trInfo,_TransitionCount);
+
+   SetLength (GTransName,_TransitionCount);
+   SetLength (GPlaceName,_PlaceCount);
+
 
    // reserve  position [0] of array to
    //   record number of enabled transitions
@@ -86,6 +94,7 @@ begin
    // first pass, scan the net,
    //   record all transitions
    nt := 0;
+   np := 0;
    for i := 0 to PN[_].Gi do begin
 
       if  PN[_].El[i].tipo = KTransition then begin
@@ -96,8 +105,14 @@ begin
         _trInfo[nt].input  := nil;
         _trInfo[nt].output := nil;
 
+        GTransName[nt] := i;
+
         inc(nt);
 
+      end else if ((PN[_].El[i].tipo = KPlace)
+                   and (PN[_].El[i].ptipo = KPlace)) then begin
+        GPlaceName[np] := i;
+        inc(np);
       end;
    end; // for  - first pass
 
@@ -111,10 +126,27 @@ begin
 
         // distinguish endpoints
        if (PN[_].El[PN[_].El[i].id1].tipo = KPlace) then begin
-         idp := PN[_].El[i].id1;
-         idt := PN[_].El[i].id2;
+
+         flag_from_place := true;
+
+         // if this is a clone place, get reference to father
+          if (PN[_].El[PN[_].El[i].id1].ptipo = KPlace) then
+             idp := PN[_].El[i].id1
+          else
+             idp := PN[_].El[PN[_].El[i].id1].idx_real_p;
+
+          idt := PN[_].El[i].id2;
+
        end else begin
-          idp := PN[_].El[i].id2;
+
+          flag_from_place := false;
+
+         // if this is a clone place, get reference to father
+          if (PN[_].El[PN[_].El[i].id2].ptipo = KPlace) then
+             idp := PN[_].El[i].id2
+          else
+             idp := PN[_].El[PN[_].El[i].id2].idx_real_p;;
+
           idt := PN[_].El[i].id1;
        end;
 
@@ -123,14 +155,20 @@ begin
        while (_trInfo[j].id <> idt) do
           inc(j);
 
+       new (aux);
+       aux^.id    := idp;
+       aux^.uidth := PN[_].El[i].uidth;
+       aux^.finhibitor := (PN[_].El[i].atipo = KArcInhibit);
+
        //------------------------------------------------
        // deal with input conection
        if (PN[_].El[i].atipo = KArcDouble) or
-          (idp = PN[_].El[i].id1) then begin
+          //(idp = PN[_].El[i].id1)
+          flag_from_place then begin  // id1 = Place
 
-         new (aux);
-         aux^.id := idp;
-         aux^.uidth := PN[_].El[i].uidth;
+         //new (aux);
+         //aux^.id := idp;
+         //aux^.uidth := PN[_].El[i].uidth;
          aux^.prox := _trInfo[j].input;
          _trInfo[j].input := aux;
        end;
@@ -138,11 +176,12 @@ begin
      //------------------------------------------------
      // deal with output conection
      if (PN[_].El[i].atipo = KArcDouble) or
-        (idt = PN[_].El[i].id1) then begin
+        //(idt = PN[_].El[i].id1)
+        (not flag_from_place) then begin   // id1 = Transition
 
-          new (aux);
-          aux^.id := idp;
-          aux^.uidth := PN[_].El[i].uidth;
+          //new (aux);
+          //aux^.id := idp;
+          //aux^.uidth := PN[_].El[i].uidth;
           aux^.prox := _trInfo[j].output;
           _trInfo[j].output := aux;
         end;
@@ -176,8 +215,14 @@ begin
       // scan input arcs
       while ((aux <> nil) and (_trInfo[i].enabled)) do begin
 
-         _trInfo[i].enabled :=
-           (PN[_].El[aux^.id].count >= aux^.uidth);
+         // A single inhibitory arc active will paralyze the transition.
+         if (aux^.finhibitor) then begin
+            if (PN[_].El[aux^.id].count >= aux^.uidth) then begin
+                _trInfo[i].enabled := false;
+                break; // exit while, no other arcs matter!
+            end
+         end else
+            _trInfo[i].enabled := (PN[_].El[aux^.id].count >= aux^.uidth);
 
          aux := aux^.prox;
       end; // while
@@ -223,9 +268,8 @@ begin;
    // handle inputs
    aux := _trInfo[t].input;
    while (aux <> nil) do begin
-      PN[_].El[aux^.id].count :=
-         PN[_].El[aux^.id].count -
-         aux^.uidth;
+
+      PN[_].El[aux^.id].count := PN[_].El[aux^.id].count - aux^.uidth;
 
       aux := aux^.prox;
    end;
@@ -233,9 +277,8 @@ begin;
    // handle outputs
    aux := _trInfo[t].output;
    while (aux <> nil) do begin
-      PN[_].El[aux^.id].count :=
-         PN[_].El[aux^.id].count +
-         aux^.uidth;
+
+      PN[_].El[aux^.id].count := PN[_].El[aux^.id].count + aux^.uidth;
 
       aux := aux^.prox;
    end;

@@ -32,11 +32,23 @@ type
     MenuFileOpen: TMenuItem;
     MenuFileSave: TMenuItem;
     MenuFileSaveAs: TMenuItem;
+    MenuDistrRow: TMenuItem;
+    MenuDistCol: TMenuItem;
     MenuItem2: TMenuItem;
     FileMenuQuit: TMenuItem;
     FileMenuNew: TMenuItem;
     MenuItem3: TMenuItem;
     MenuItem4: TMenuItem;
+    MenuItem5: TMenuItem;
+    MenuItem6: TMenuItem;
+    MenuEdit: TMenuItem;
+    MenuAlign: TMenuItem;
+    MenuItem7: TMenuItem;
+    MenuItem8: TMenuItem;
+    MenuItem9: TMenuItem;
+    MIInhibitArc: TMenuItem;
+    MIAbout: TMenuItem;
+    MIHelp: TMenuItem;
     MITEditSubPN: TMenuItem;
     MITDelete: TMenuItem;
     MITRename: TMenuItem;
@@ -78,21 +90,28 @@ type
     procedure btnSaveClick(Sender: TObject);
     procedure Button1Click(Sender: TObject);
     procedure ComboBox1Change(Sender: TObject);
-    procedure Edit1EditingDone(Sender: TObject);
     procedure Edit1Exit(Sender: TObject);
     procedure FileMenuNewClick(Sender: TObject);
     procedure FileMenuQuitClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
+    procedure MenuDistColClick(Sender: TObject);
     procedure MenuFileOpenClick(Sender: TObject);
     procedure MenuFileSaveAsClick(Sender: TObject);
     procedure MenuFileSaveClick(Sender: TObject);
+    procedure MenuDistrRowClick(Sender: TObject);
+    procedure MenuItem7Click(Sender: TObject);
+    procedure MenuItem8Click(Sender: TObject);
+    procedure MIAboutClick(Sender: TObject);
+    procedure MIHelpClick(Sender: TObject);
     procedure MIImageClick(Sender: TObject);
     procedure MICountClick(Sender: TObject);
     procedure MIDeleteClick(Sender: TObject);
     procedure MIDoubleArcClick(Sender: TObject);
+    procedure MIInhibitArcClick(Sender: TObject);
     procedure MIInvariantsClick(Sender: TObject);
     procedure MIInvertClick(Sender: TObject);
+    procedure MIPlaceCClick(Sender: TObject);
     procedure MIRenameClick(Sender: TObject);
     procedure MISettingsClick(Sender: TObject);
     procedure MITEditSubPNClick(Sender: TObject);
@@ -113,6 +132,11 @@ type
     procedure ToolOvalClick(Sender: TObject);
     procedure ToolPointerClick(Sender: TObject);
     procedure ToolRectClick(Sender: TObject);
+
+    procedure ComputeInvariants (flag_unfold, flag_T : boolean);
+
+
+
   private
     { private declarations }
     function MouseSelectedElement (pX, pY: integer) : boolean;
@@ -143,9 +167,8 @@ type
     procedure LoadConfiguration;
     procedure SaveConfiguration;
     procedure ComputeMatrix;
-    procedure ComputeInvariants;
     procedure TransposeMatrix;
-    function GatherSelectedObjects:boolean;
+    function  GatherSelectedObjects:boolean;
     procedure MovaOsCabra;
 
     procedure AtualizeComBoBox;
@@ -156,7 +179,14 @@ type
     { public declarations }
     //function GetFont:TFont;
 
-    var GFont : TFont;
+    var
+       GFont : TFont;
+
+       GTransName,GPlaceName : array of integer;
+
+       // these are used for invariant calculation
+       _id, _matrix : TMatrix;
+       _PlaceCount, _TransCount : integer;
 
   end;
 
@@ -182,11 +212,13 @@ const
   KPopupMenu = 7;
   KArcNormal = 8;
   KArcDouble = 9;
-  KSelectingRectangle = 10;
-  KSelectedObjects = 11;
+  KArcInhibit = 10;
+  KSelectingRectangle = 11;
+  KSelectedObjects = 12;
 
-  KPlaceC      = 12;
-  KTransitionC = 13;
+  KPlaceC  = 13;
+  KTransitionC = 14;
+
 
   KSHovering = 0;
   KSStartRectangle = 101;
@@ -211,7 +243,7 @@ type TElement = record
    s: String[KLengthName];
 
    case tipo : integer of
-   KPlace: (count,ptipo,idx_subpn_p : integer);
+   KPlace: (count,ptipo,idx_real_p : integer);
    KTransition: (ttipo,idx_subpn_t : integer);
    KArc:    (id1, id2, uidth, atipo: integer;);
 end;
@@ -239,11 +271,9 @@ var
    ,GAnimInterval
    ,GMagnetGrid
    ,Gstate
-  // ,Gplacecount
-  // ,Gtransitioncount
    : integer;
 
-   GElements       : array[1..KNumElements] of TElement;
+   //GElements       : array[1..KNumElements] of TElement;
    Gstr            : array[1..KNumElements] of string;
 
    GFont : TFont;
@@ -252,6 +282,8 @@ var
    GSelectedElements : array of integer;
 
 implementation
+
+uses Forminvariants;
 
 {$R *.lfm}
 
@@ -272,6 +304,33 @@ implementation
 {$I properties4.pas}
 
 //=======================================================
+type
+  Taux = record
+     q, i:integer;
+  end;
+
+// rosetta stone sort
+Procedure SortArray (var A : array of Taux);
+Var
+     i, j, step, N : integer;
+     tmp : Taux;
+Begin
+     N := length (A);
+     step:=N div 2;  // step:=step shr 1
+     While step>0 Do Begin
+       For i:=step to N-1 Do Begin
+         tmp:=A[i];
+         j:=i;
+         While (j>=step) and (A[j-step].q > tmp.q) Do Begin
+           A[j]:=A[j-step];
+           dec(j,step);
+         End;
+         A[j]:=tmp;
+       End;
+       step:=step div 2;  // step:=step shr 1
+     End;
+   End;
+
 
 procedure TForm1.AtualizeComBoBox;
 var
@@ -726,6 +785,12 @@ procedure TForm1.Button1Click(Sender: TObject);
 var k: integer;
 
 begin
+
+  ComputeInvariants (true, false);
+  //MenuFileSaveAsClick(Sender);
+
+  exit;
+
   // debug code
 
      writeln (' ');
@@ -759,10 +824,7 @@ end;
 
 
 
-procedure TForm1.Edit1EditingDone(Sender: TObject);
-begin
-  ;
-end;
+
 
 procedure TForm1.Edit1Exit(Sender: TObject);
 var
@@ -780,6 +842,15 @@ begin
        PN[PN[_].El[Gs].idx_subpn_t].s := Edit1.Text;
 
        AtualizeComBoBox;
+
+    end else if (PN[_].El[Gs].tipo = KPlace) then begin
+
+      for i:=0 to PN[_].Gi do
+         if (PN[_].El[i].tipo = KPlace)
+            and (PN[_].El[i].ptipo = KPlaceC)
+            and (PN[_].El[i].idx_real_p = Gs) then
+
+            PN[_].El[i].s := Edit1.Text;
     end;
 
 
@@ -795,7 +866,15 @@ end;
 
 procedure TForm1.FileMenuNewClick(Sender: TObject);
 begin
-  PN[_].Gi := 0;
+
+  SetLength (PN, 1);
+
+  _ := 0;
+
+  PN[_].PlaceCount := 0;
+  PN[_].TransCount := 0;
+
+  PN[_].Gi := -1;
 
   Invalidate;
 
@@ -821,6 +900,44 @@ begin
   btnNewClick(Sender);
 end;
 
+procedure TForm1.MenuDistColClick(Sender: TObject);
+var
+    i, ni, step : integer;
+    v : array of Taux;
+begin
+
+  if (GState <> KSHoveringWithRectangle) then
+     Exit;
+
+  ni := 0;
+
+  // scan PN, get X from places and transitions.
+  for i:=0 to PN[_].Gi do
+     if PN[_].El[i].selected then
+        if (PN[_].El[i].tipo = KPlace)
+           or
+           (PN[_].El[i].tipo = KTransition) then begin
+
+           inc(ni);
+           setlength (v, ni);
+           v[ni-1].q := PN[_].El[i].y;
+           v[ni-1].i := i;
+        end;
+
+  if ni < 3 then exit;
+
+  SortArray (v);
+
+  step := trunc ((v[ni-1].q - v[0].q) / (ni - 1));
+
+  for i:=1 to ni-1 do
+     PN[_].El[v[i].i].y := step + PN[_].El[v[i-1].i].y;
+
+  Invalidate;
+  RenderPetriNet (Sender);
+
+end;
+
 procedure TForm1.MenuFileOpenClick(Sender: TObject);
 begin
   OpenDialog1.Execute;
@@ -835,10 +952,8 @@ begin
       Invalidate;
       RenderPetriNet(Sender);
 
-    end else begin
-      ShowMessage('File is not found. You will have to open an existing file.');
-
-    end;
+    end else
+      ShowMessage('File not found.');
 
   end;
 
@@ -853,7 +968,7 @@ begin
   if SaveDialog1.Files.Count > 0 then begin
     // if the user enters a file name without a .bmp
     // extension, we will add it
-    if RightStr(SaveDialog1.FileName, 5) <> '.ksv' then
+    if RightStr(SaveDialog1.FileName, 4) <> '.ksv' then
       SaveDialog1.FileName:=SaveDialog1.FileName+'.ksv';
 
     SaveKSV(SaveDialog1.FileName);
@@ -870,12 +985,147 @@ begin
   if SaveDialog1.Files.Count > 0 then begin
     // if the user enters a file name without a .bmp
     // extension, we will add it
-    if RightStr(SaveDialog1.FileName, 5) <> '.ksv' then
+    if RightStr(SaveDialog1.FileName, 4) <> '.ksv' then
       SaveDialog1.FileName:=SaveDialog1.FileName+'.ksv';
 
     SaveKSV (SaveDialog1.FileName);
     GereXML(SaveDialog1.FileName+'.pnml');
   end;
+end;
+
+procedure TForm1.MenuDistrRowClick(Sender: TObject);
+var
+    i, ni, step : integer;
+    v : array of Taux;
+begin
+
+  if (GState <> KSHoveringWithRectangle) then
+     Exit;
+
+  //mean y
+  ni := 0;
+
+  // scan PN, get X from places and transitions.
+  for i:=0 to PN[_].Gi do
+     if PN[_].El[i].selected then
+        if (PN[_].El[i].tipo = KPlace)
+           or
+           (PN[_].El[i].tipo = KTransition) then begin
+
+           inc(ni);
+           setlength (v, ni);
+           v[ni-1].q := PN[_].El[i].x;
+           v[ni-1].i := i;
+        end;
+
+  if ni < 3 then exit;
+
+  SortArray (v);
+
+  step := trunc ((v[ni-1].q - v[0].q) / (ni - 1));
+
+  for i:=1 to ni-1 do
+     PN[_].El[v[i].i].x := step + PN[_].El[v[i-1].i].x;
+
+  Invalidate;
+  RenderPetriNet (Sender);
+
+end;
+
+procedure TForm1.MenuItem7Click(Sender: TObject);
+var
+    i, ni, my : integer;
+begin
+
+  if (GState <> KSHoveringWithRectangle) then
+     Exit;
+
+  //mean y
+  my := 0;
+  ni := 0;
+
+  // scan PN, compute mean y for selected places and transitions.
+  for i:=0 to PN[_].Gi do
+     if PN[_].El[i].selected then
+        if (PN[_].El[i].tipo = KPlace)
+           or
+           (PN[_].El[i].tipo = KTransition) then begin
+
+           inc(ni);
+           my := my + PN[_].El[i].y;
+
+        end;
+
+  // if less than 2 elements selected, exit.
+  if (ni < 2) then exit;
+
+  my := trunc (my / ni);
+
+  // apply average y to all those selected elements.
+  for i:=0 to PN[_].Gi do
+   if PN[_].El[i].selected then
+      if (PN[_].El[i].tipo = KPlace)
+         or
+         (PN[_].El[i].tipo = KTransition) then
+
+         PN[_].El[i].y := my;
+
+  Invalidate;
+  RenderPetriNet (Sender);
+
+end;
+
+procedure TForm1.MenuItem8Click(Sender: TObject);
+var
+    i, ni, mx : integer;
+begin
+
+  if (GState <> KSHoveringWithRectangle) then
+     Exit;
+
+  //mean x
+  mx := 0;
+  ni := 0;
+
+  // scan PN, compute mean x for selected places and transitions.
+  for i:=0 to PN[_].Gi do
+     if PN[_].El[i].selected then
+        if (PN[_].El[i].tipo = KPlace)
+           or
+           (PN[_].El[i].tipo = KTransition) then begin
+
+           inc(ni);
+           mx := mx + PN[_].El[i].x;
+
+        end;
+
+  // if less than 2 elements selected, exit.
+  if (ni < 2) then exit;
+
+  mx := trunc (mx / ni);
+
+  // apply average y to all those selected elements.
+  for i:=0 to PN[_].Gi do
+   if PN[_].El[i].selected then
+      if (PN[_].El[i].tipo = KPlace)
+         or
+         (PN[_].El[i].tipo = KTransition) then
+
+         PN[_].El[i].x := mx;
+
+  Invalidate;
+  RenderPetriNet (Sender);
+end;
+
+procedure TForm1.MIAboutClick(Sender: TObject);
+begin
+
+end;
+
+procedure TForm1.MIHelpClick(Sender: TObject);
+begin
+  //OpenURL ('http://wiki.lazarus.freepascal.org/');
+  OpenURL ('file://arakne.html');
 end;
 
 procedure TForm1.MIImageClick(Sender: TObject);
@@ -964,8 +1214,34 @@ begin
 
   if (PN[_].El[Gs].atipo = KArcDouble) then
      PN[_].El[Gs].atipo := KArcNormal
-  else
+
+  // prevent inhibitor arcs to become double...
+  else   if (PN[_].El[Gs].atipo = KArcNormal) then
      PN[_].El[Gs].atipo := KArcDouble;
+
+  Invalidate;
+  RenderPetriNet(Sender);
+end;
+
+procedure TForm1.MIInhibitArcClick(Sender: TObject);
+var
+   aux : integer;
+begin
+  if (Gs < 0) then Exit;
+
+  if (PN[_].El[Gs].atipo = KArcNormal) then begin
+
+      PN[_].El[Gs].atipo := KArcInhibit;
+
+      if (PN[_].El[PN[_].El[Gs].id2].tipo <> KTransition) then begin
+         aux              := PN[_].El[Gs].id2;
+         PN[_].El[Gs].id2 := PN[_].El[Gs].id1;
+         PN[_].El[Gs].id1 := aux;
+      end
+
+
+  end else  if (PN[_].El[Gs].atipo = KArcInhibit) then
+     PN[_].El[Gs].atipo := KArcNormal;
 
   Invalidate;
   RenderPetriNet(Sender);
@@ -973,7 +1249,7 @@ end;
 
 procedure TForm1.MIInvariantsClick(Sender: TObject);
 begin
-   ComputeInvariants;
+   Form3.ShowModal;
 end;
 
 procedure TForm1.MIInvertClick(Sender: TObject);
@@ -981,12 +1257,35 @@ var aux: integer;
 begin
    if (Gs < 0) then Exit;
 
+   // Never invert inhibitor arcs!
+   if (PN[_].El[Gs].atipo = KArcInhibit) then Exit;
+
    aux := PN[_].El[Gs].id1;
    PN[_].El[Gs].id1 := PN[_].El[Gs].id2;
    PN[_].El[Gs].id2 := aux;
 
    Invalidate;
    RenderPetriNet(Sender);
+end;
+
+procedure TForm1.MIPlaceCClick(Sender: TObject);
+begin
+
+     // one more element
+     inc(PN[_].Gi);
+     SetLength (PN[_].El, 1+ PN[_].Gi);
+
+     // but this is only a clone
+     //inc(PN[0].PlaceCount);
+
+     with PN[_].El[PN[_].Gi] do begin
+         x := PN[_].El[Gs].x + 5;
+         y := PN[_].El[Gs].y + 5;
+         tipo  := KPlace;
+         ptipo := KPlaceC;
+         s := PN[_].El[Gs].s;  // repeat name
+         idx_real_p := Gs;  // refer to the real thing
+     end;
 end;
 
 procedure TForm1.MIRenameClick(Sender: TObject);
@@ -1133,6 +1432,12 @@ begin
 
      // menu = place
      if (PN[_].El[Gs].tipo = KPlace) then begin
+
+       // do not edit a clone
+       MIPlaceC.Enabled  := (PN[_].El[Gs].ptipo = KPlace);
+       MIPTokens.Enabled := (PN[_].El[Gs].ptipo = KPlace);
+       MIPRename.Enabled := (PN[_].El[Gs].ptipo = KPlace);
+
         PopupMenuPlace.PopUp(Form1.Left + CanvasScroller.Left + pX,
                          Form1.Top + CanvasScroller.Top + pY + 50);
         exit
@@ -1142,11 +1447,14 @@ begin
 
         MiDoubleArc.Checked := PN[_].El[Gs].atipo = (KArcDouble);
 
+        MiInhibitArc.Checked := PN[_].El[Gs].atipo = (KArcInhibit);
+
+
         PopupMenuArc.PopUp(Form1.Left + CanvasScroller.Left + pX,
                            Form1.Top + CanvasScroller.Top + pY + 50);
         Exit;
      // menu = transition
-     end else begin
+     end else if (PN[_].El[Gs].tipo = KTransition) then begin
 
      //MITTransitionC.Enabled := (PN[_].El[Gs].ttipo = KTransition);
        MITEditSubPn.Enabled := PN[_].El[Gs].ttipo = KTransitionC;
@@ -1171,7 +1479,7 @@ begin
       GNewX  := -1;
 
       // mark all objects as non-selected.
-       for i:=1 to PN[_].Gi do
+       for i:=0 to PN[_].Gi do
           PN[_].El[i].selected := false;
 
       Exit;
@@ -1223,7 +1531,9 @@ begin
     inc(PN[_].Gi);
     SetLength (PN[_].El, 1+ PN[_].Gi);
 
+    // one more transition
     inc(PN[0].TransCount);
+
     with PN[_].El[PN[_].Gi] do begin
         x := pX;
         y := pY;
@@ -1231,8 +1541,6 @@ begin
         ttipo := KTransition;
 
         s := 'T' + IntToStr (PN[0].TransCount);
-        //source[1] := -1;
-        //target[1] := -1;
     end;
 
   // drawing a place
@@ -1262,9 +1570,10 @@ begin
 
     PN[_].El[PN[_].Gi].x := PN[_].El[Gs].x;
     PN[_].El[PN[_].Gi].y := PN[_].El[Gs].y;
-    PN[_].El[PN[_].Gi].tipo := KArc;
-    PN[_].El[PN[_].Gi].id1 := Gs;
-    PN[_].El[PN[_].Gi].id2 := -1;
+    PN[_].El[PN[_].Gi].tipo  := KArc;
+    PN[_].El[PN[_].Gi].atipo := KArcNormal;
+    PN[_].El[PN[_].Gi].id1   := Gs;
+    PN[_].El[PN[_].Gi].id2   := -1;
     PN[_].El[PN[_].Gi].uidth := 1;
 
     Gs1 := Gs;
@@ -1382,10 +1691,13 @@ procedure TForm1.MyCanvasMouseUp(Sender: TObject; Button: TMouseButton;
 label saidaMouseUp;
 var
    i : integer;
+   k : integer;
+
+
+
 begin
 
   MouseIsDown := False;
-
 
   // release mouse during popup menu choice, just exit
   if (Gstate = KPopupMenu) then Exit;
@@ -1409,6 +1721,14 @@ begin
         dec (PN[_].Gi);
         Exit;
      end;
+
+     // Do not create arcs if it links both Place and Place Clone
+     //  to the same transition.
+     // This is a little tricky to test.
+     //if not TestValidArc (PN[_].El[PN[_].Gi].id1, Gs) then
+     //    dec (PN[_].Gi);
+     //    Exit;
+     // end;
 
      // marque na linha objeto final
      PN[_].El[PN[_].Gi].id2 := Gs;
@@ -1595,18 +1915,18 @@ begin
    //   so (-1) means the net is empty.
    PN[_].s          := 'Root';
    PN[_].Gi         := -1;
-   PN[_].PlaceCount := -1;
-   PN[_].TransCount := -1;
-//   PN[_]._Count     := 0;
+
+   // These name objects (P0, P1...)
+   PN[_].PlaceCount := 0;
+   PN[_].TransCount := 0;
+
 
 
    // no element selected yet
    Gs := -1;
 
-  // Gss := 0;
    Gsize := 20;
-   //Gplacecount := 0;
-   //Gtransitioncount := 0;
+
    Gmidsize := Gsize div 2;
    GsizeToken := Gsize div 4;
 
@@ -1620,99 +1940,16 @@ begin
 end.
 
 (*
-
-procedure TForm1.Button2Click(Sender: TObject);
-var
-  bmp: TBitmap;
-  R: TRect;
-  png : TPortableNetworkGraphic;
-begin
-  // bmp, png
-  bmp := TBitmap.Create;
-  png := TPortableNetworkGraphic.Create;
-
-  try
-    // bmp
-    R := Rect(0, 0, BarcodeQR1.Width, BarcodeQR1.Height);
-    bmp.SetSize(BarcodeQR1.Width, BarcodeQR1.Height);
-    bmp.Canvas.Brush.Color := clWhite;
-    bmp.Canvas.FillRect(R);
-    BarcodeQR1.PaintOnCanvas(bmp.Canvas, R);
-    bmp.SaveToFile('barcode.bmp');
-    // png
-    png.Assign(bmp);
-    png.SaveToFile('barcode.png');
-
-  finally
-    bmp.Free;
-    png.Free;
-  end;
-end;
-
-*)
-
-(*
 Software Implementation of Petri nets and compilation of rule-based
 systems.
 Conference Paper · June 1990
 DOI: 10.1007/BFb0019980 · Source: DBLP
-CITATIONS READS
-27 77
-2 authors, including:
+
 Robert Valette
 French National C
 
 
 Performance Evaluation of Petri Nets Execution Algorithms
 Ramón Piedrafita Moreno, José Luis Villarroel Salcedo
-
-
-
-
-
-play/pause
-play N times
-log results
-
-
-select tool
-
-mouse down out of shape
-drag with Gs = -1
-mouse up with Gs = -1 -> rectangle
-  select all objects
-  Gstate = KSelectedMany
-
-mouse down and
-over shape and
-KSelectedMany
-   KMoveMany
-
-mouse move and
-KMoveMany
-    movemany
-
-
-
-
-
-
-
-hovering
-
-hovering-over-object
-
-clicked-over-object
-
-clicked-over-empty-space
-
-clicked-over-selected-object
-
-
-
-
-
-
-
 
 *)
